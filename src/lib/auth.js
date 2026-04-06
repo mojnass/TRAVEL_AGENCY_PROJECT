@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 
 export const authService = {
   async register(email, password, fullName) {
+    // Supabase auth creates user and trigger automatically creates profile
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -13,19 +14,6 @@ export const authService = {
     });
 
     if (error) throw error;
-
-    if (data.user) {
-      await supabase
-        .from('users')
-        .insert({
-          user_id: data.user.id,
-          email,
-          full_name: fullName,
-          is_verified: false,
-        })
-        .single();
-    }
-
     return data;
   },
 
