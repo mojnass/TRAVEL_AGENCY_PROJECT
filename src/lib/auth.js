@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 
 export const authService = {
-  async register(email: string, password: string, fullName: string) {
+  async register(email, password, fullName) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -29,7 +29,7 @@ export const authService = {
     return data;
   },
 
-  async login(email: string, password: string) {
+  async login(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -44,12 +44,12 @@ export const authService = {
     if (error) throw error;
   },
 
-  async resetPassword(email: string) {
+  async resetPassword(email) {
     const { error } = await supabase.auth.resetPasswordForEmail(email);
     if (error) throw error;
   },
 
-  async updatePassword(newPassword: string) {
+  async updatePassword(newPassword) {
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
     });
@@ -68,7 +68,7 @@ export const authService = {
     return data.session;
   },
 
-  onAuthStateChange(callback: (event: string, session: any) => void) {
+  onAuthStateChange(callback) {
     return supabase.auth.onAuthStateChange(callback);
   },
 };

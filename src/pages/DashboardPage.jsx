@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, User, Plane, Hotel, Utensils, Ticket, Sparkles, ClipboardList } from 'lucide-react';
 
-export const DashboardPage: React.FC = () => {
+export const DashboardPage = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('all');
@@ -103,7 +103,7 @@ export const DashboardPage: React.FC = () => {
   );
 };
 
-const StatCard: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+const StatCard = ({ label, value }) => (
   <div className="bg-white rounded-lg p-6 border border-slate-200">
     <p className="text-sm text-slate-600 mb-2">{label}</p>
     <p className="text-3xl font-bold text-slate-900">{value}</p>

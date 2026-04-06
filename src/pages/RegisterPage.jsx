@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, User, AlertCircle, Loader, Check } from 'lucide-react';
 
-export const RegisterPage: React.FC = () => {
+export const RegisterPage = () => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -13,7 +13,7 @@ export const RegisterPage: React.FC = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const validatePassword = (pwd: string) => {
+  const validatePassword = (pwd) => {
     return {
       length: pwd.length >= 8,
       upper: /[A-Z]/.test(pwd),
@@ -26,7 +26,7 @@ export const RegisterPage: React.FC = () => {
   const isPasswordValid = Object.values(passwordChecks).every((v) => v);
   const passwordsMatch = password === confirmPassword && password.length > 0;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -184,7 +184,7 @@ export const RegisterPage: React.FC = () => {
   );
 };
 
-const PasswordCheck: React.FC<{ met: boolean; text: string }> = ({ met, text }) => (
+const PasswordCheck = ({ met, text }) => (
   <div className="flex items-center gap-2 text-sm">
     {met ? (
       <Check className="w-4 h-4 text-green-600" />

@@ -1,20 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User } from '@supabase/supabase-js';
 import { authService } from '../lib/auth';
 
-interface AuthContextType {
-  user: User | null;
-  isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, fullName: string) => Promise<void>;
-  logout: () => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-}
+const AuthContext = createContext(undefined);
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -40,7 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email, password) => {
     setIsLoading(true);
     try {
       await authService.login(email, password);
@@ -51,7 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (email: string, password: string, fullName: string) => {
+  const register = async (email, password, fullName) => {
     setIsLoading(true);
     try {
       await authService.register(email, password, fullName);
@@ -70,7 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const resetPassword = async (email: string) => {
+  const resetPassword = async (email) => {
     await authService.resetPassword(email);
   };
 

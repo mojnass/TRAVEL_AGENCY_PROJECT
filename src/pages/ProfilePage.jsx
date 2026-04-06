@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Camera, Loader, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
-export const ProfilePage: React.FC = () => {
+export const ProfilePage = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
@@ -46,12 +46,12 @@ export const ProfilePage: React.FC = () => {
     loadProfile();
   }, [user]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');

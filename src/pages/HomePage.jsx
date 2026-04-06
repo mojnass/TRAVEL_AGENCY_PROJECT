@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Plane, Hotel, Users, Utensils, Ticket, Sparkles, ChevronRight, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-export const HomePage: React.FC = () => {
+export const HomePage = () => {
   const { user } = useAuth();
 
   return (
@@ -191,21 +191,14 @@ export const HomePage: React.FC = () => {
   );
 };
 
-const FeatureCard: React.FC<{ icon: React.ComponentType<{ className?: string }>; label: string }> = ({
-  icon: Icon,
-  label,
-}) => (
+const FeatureCard = ({ icon: Icon, label }) => (
   <div className="flex flex-col items-center justify-center p-6 rounded-xl bg-slate-50 hover:bg-blue-50 transition">
     <Icon className="w-8 h-8 text-blue-600 mb-2" />
     <p className="font-medium text-slate-900">{label}</p>
   </div>
 );
 
-const ServiceCard: React.FC<{
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  description: string;
-}> = ({ icon: Icon, title, description }) => (
+const ServiceCard = ({ icon: Icon, title, description }) => (
   <div className="p-8 border border-slate-200 rounded-2xl hover:shadow-lg hover:border-blue-200 transition">
     <Icon className="w-12 h-12 text-blue-600 mb-4" />
     <h4 className="text-xl font-bold text-slate-900 mb-3">{title}</h4>
