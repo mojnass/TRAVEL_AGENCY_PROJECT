@@ -4,8 +4,6 @@ export const flightService = {
   // Search for flights with caching
   async searchFlights(origin, destination, departureDate, returnDate = null, passengerCount = 1, cabinClass = 'economy') {
     // Check cache first
-    const cacheKey = `${origin}-${destination}-${departureDate}-${returnDate || 'one-way'}-${passengerCount}-${cabinClass}`;
-    
     const { data: cachedData } = await supabase
       .from('flight_search_cache')
       .select('*')

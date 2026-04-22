@@ -1,4 +1,3 @@
-import React from 'react';
 import { ShoppingCart, X, Plus, Minus, CreditCard } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -59,7 +58,7 @@ export const CartComponent = () => {
         status: 'pending'
       };
 
-      const payment = await paymentService.createPayment(paymentData);
+      await paymentService.createPayment(paymentData);
       
       // Process payment (mock)
       await paymentService.processPayment(paymentData);

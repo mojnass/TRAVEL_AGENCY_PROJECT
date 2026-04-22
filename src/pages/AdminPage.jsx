@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import {
-  Plane, Users, TrendingUp, DollarSign, AlertCircle,
+  Users, TrendingUp, DollarSign, AlertCircle,
   Loader, Search, CheckCircle, XCircle, Shield,
-  BarChart2, Bell, Package, LogOut, RefreshCw
+  BarChart2, Package, LogOut, RefreshCw
 } from 'lucide-react';
 
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Admin Page
-// ─────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const AdminPage = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -26,7 +26,7 @@ export const AdminPage = () => {
     if (user && user.user_metadata?.role !== 'admin') {
       navigate('/dashboard');
     }
-  }, [user]);
+  }, [user, navigate]);
 
   const loadData = async () => {
     try {
@@ -47,7 +47,7 @@ export const AdminPage = () => {
 
   useEffect(() => { loadData(); }, []);
 
-  // ── Derived analytics ──────────────────────
+  // â”€â”€ Derived analytics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const totalRevenue  = bookings.reduce((s, b) => s + (parseFloat(b.total_price) || 0), 0);
   const byType        = bookings.reduce((acc, b) => {
     acc[b.booking_type] = (acc[b.booking_type] || 0) + 1;
@@ -156,7 +156,7 @@ export const AdminPage = () => {
           </div>
         ) : (
           <>
-            {/* ── ANALYTICS TAB ── */}
+            {/* â”€â”€ ANALYTICS TAB â”€â”€ */}
             {activeTab === 'analytics' && (
               <div className="space-y-6">
                 {/* Bookings by service */}
@@ -242,7 +242,7 @@ export const AdminPage = () => {
               </div>
             )}
 
-            {/* ── USERS TAB ── */}
+            {/* â”€â”€ USERS TAB â”€â”€ */}
             {activeTab === 'users' && (
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="p-5 border-b border-slate-100 flex items-center gap-3">
@@ -279,11 +279,11 @@ export const AdminPage = () => {
                       ) : filteredUsers.map(u => (
                         <tr key={u.user_id} className="hover:bg-slate-50 transition">
                           <td className="px-5 py-4">
-                            <div className="font-medium text-slate-900">{u.full_name || '—'}</div>
+                            <div className="font-medium text-slate-900">{u.full_name || 'â€”'}</div>
                           </td>
                           <td className="px-5 py-4 text-slate-600">{u.email}</td>
                           <td className="px-5 py-4 text-slate-500">
-                            {u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}
+                            {u.created_at ? new Date(u.created_at).toLocaleDateString() : 'â€”'}
                           </td>
                           <td className="px-5 py-4">
                             <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -318,7 +318,7 @@ export const AdminPage = () => {
               </div>
             )}
 
-            {/* ── BOOKINGS TAB ── */}
+            {/* â”€â”€ BOOKINGS TAB â”€â”€ */}
             {activeTab === 'bookings' && (
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="p-5 border-b border-slate-100">
@@ -362,13 +362,13 @@ export const AdminPage = () => {
                               </span>
                             </td>
                             <td className="px-5 py-4 text-slate-600">
-                              {b.start_date ? new Date(b.start_date).toLocaleDateString() : '—'}
+                              {b.start_date ? new Date(b.start_date).toLocaleDateString() : 'â€”'}
                             </td>
                             <td className="px-5 py-4 font-semibold text-slate-900">
                               ${parseFloat(b.total_price || 0).toFixed(2)}
                             </td>
                             <td className="px-5 py-4 text-slate-500">
-                              {b.created_at ? new Date(b.created_at).toLocaleDateString() : '—'}
+                              {b.created_at ? new Date(b.created_at).toLocaleDateString() : 'â€”'}
                             </td>
                           </tr>
                         );

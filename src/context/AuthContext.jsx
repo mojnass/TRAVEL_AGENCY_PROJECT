@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { authService } from '../lib/auth';
 
 const AuthContext = createContext(undefined);
@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
       try {
         const currentUser = await authService.getCurrentUser();
         setUser(currentUser);
-      } catch (error) {
+      } catch {
         setUser(null);
       } finally {
         setIsLoading(false);

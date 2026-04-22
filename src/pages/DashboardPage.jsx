@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   LogOut, User, Plane, Hotel, Utensils, Ticket, Sparkles,
   ClipboardList, Loader, AlertCircle, X, Bell, BellOff,
   CheckCircle, Clock, XCircle, ChevronRight, RefreshCw,
-  DollarSign, Calendar, TrendingUp, Package
+  DollarSign, Calendar, Package
 } from 'lucide-react';
 import { bookingService } from '../lib/bookingService';
 import { notificationService } from '../lib/notificationService';
@@ -28,7 +28,7 @@ export const DashboardPage = () => {
   const [activeView, setActiveView]         = useState('bookings'); // bookings | notifications
 
   // ── Load data ──────────────────────────────
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     if (!user) return;
     try {
       setIsLoading(true);
@@ -38,7 +38,6 @@ export const DashboardPage = () => {
         notificationService.getUserNotifications(user.id, { limit: 20 }),
         notificationService.getUnreadCount(user.id),
       ]);
-      setBookings(userNotifications || []);
       setBookings(userBookings     || []);
       setNotifications(userNotifications || []);
       setUnreadCount(unread);
@@ -47,9 +46,9 @@ export const DashboardPage = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
-  useEffect(() => { loadDashboardData(); }, [user]);
+  useEffect(() => { loadDashboardData(); }, [loadDashboardData]);
 
   // ── Actions ───────────────────────────────
   const handleCancelBooking = async (bookingId) => {
@@ -107,10 +106,11 @@ export const DashboardPage = () => {
 
   // ─────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="dashboard-sky min-h-screen">
+      <DashboardBackdrop />
 
       {/* ── Navbar ── */}
-      <nav className="bg-white border-b border-slate-200 sticky top-0 z-40">
+      <nav className="glass-surface border-b border-white/70 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
           <Link to="/" className="flex items-center gap-2">
             <Plane className="w-7 h-7 text-blue-600" />
@@ -153,7 +153,7 @@ export const DashboardPage = () => {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* ── Page header ── */}
         <div className="flex items-center justify-between mb-8">
@@ -231,7 +231,7 @@ export const DashboardPage = () => {
 
             {/* ── BOOKINGS VIEW ── */}
             {activeView === 'bookings' && (
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+              <div className="glass-surface rounded-3xl shadow-[0_24px_80px_-40px_rgba(15,23,42,0.35)] border border-white/80">
                 {/* Tabs */}
                 <div className="flex overflow-x-auto border-b border-slate-100">
                   {tabs.map(({ id, label, icon: Icon }) => {
@@ -281,7 +281,7 @@ export const DashboardPage = () => {
 
             {/* ── NOTIFICATIONS VIEW ── */}
             {activeView === 'notifications' && (
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+              <div className="glass-surface rounded-3xl shadow-[0_24px_80px_-40px_rgba(15,23,42,0.35)] border border-white/80">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
                   <h2 className="font-semibold text-slate-900">Notifications</h2>
                   {unreadCount > 0 && (
@@ -485,7 +485,7 @@ const StatCard = ({ icon: Icon, label, value, color }) => {
     purple: 'bg-purple-50 text-purple-600',
   };
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+    <div className="glass-surface rounded-2xl border border-white/80 p-5 shadow-[0_18px_50px_-34px_rgba(15,23,42,0.45)]">
       <div className={`inline-flex items-center justify-center w-10 h-10 rounded-lg mb-3 ${colorMap[color]}`}>
         <Icon className="w-5 h-5" />
       </div>
@@ -494,6 +494,21 @@ const StatCard = ({ icon: Icon, label, value, color }) => {
     </div>
   );
 };
+
+const DashboardBackdrop = () => (
+  <div className="dashboard-motion-layer" aria-hidden="true">
+    <div className="dashboard-cloud top-20 -left-24 h-12 w-28 opacity-70 [animation-duration:28s]" />
+    <div className="dashboard-cloud top-44 -left-40 h-16 w-36 opacity-60 [animation-duration:34s]" />
+    <div className="dashboard-cloud top-72 -left-52 h-10 w-24 opacity-50 [animation-duration:24s]" />
+
+    <div className="dashboard-line dashboard-line-left top-28 w-[38vw]" />
+    <div className="dashboard-line dashboard-line-right top-44 w-[34vw] [animation-delay:0.8s]" />
+    <div className="dashboard-line dashboard-line-left top-[32rem] w-[28vw] [animation-delay:1.4s]" />
+
+    <div className="dashboard-plane-trail hidden md:block" />
+    <Plane className="dashboard-plane-launch hidden md:block h-8 w-8" strokeWidth={1.8} />
+  </div>
+);
 
 const EmptyState = ({ navigate }) => (
   <div className="text-center py-16">

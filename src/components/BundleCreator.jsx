@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Package, Plus, X, Save, Share2 } from 'lucide-react';
+import { useState } from 'react';
+import { Package, Save, Share2 } from 'lucide-react';
 import { bundleService } from '../lib/bundleService';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';

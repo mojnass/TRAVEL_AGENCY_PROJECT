@@ -310,7 +310,7 @@ export const notificationService = {
         
         // Mark as sent
         await this.updateEmailStatus(email.email_id, 'sent');
-      } catch (error) {
+      } catch {
         // Mark as failed
         await this.updateEmailStatus(email.email_id, 'failed');
       }

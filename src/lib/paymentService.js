@@ -129,7 +129,7 @@ export const paymentService = {
 
   // Generate invoice
   async generateInvoice(paymentId) {
-    const { data: payment, error: paymentError } = await supabase
+    const { error: paymentError } = await supabase
       .from('payments')
       .select('*')
       .eq('payment_id', paymentId)
@@ -343,22 +343,10 @@ export const paymentService = {
   // Process payment (mock implementation for now)
   async processPayment(paymentData) {
     // Create payment record
-    const payment = await this.createPayment({
+    return this.createPayment({
       ...paymentData,
       status: 'pending'
     });
-    
-    // Simulate payment processing
-    setTimeout(async () => {
-      const success = Math.random() > 0.1; // 90% success rate
-      if (success) {
-        await this.completePayment(payment.payment_id, `TXN_${Date.now()}`);
-      } else {
-        await this.failPayment(payment.payment_id);
-      }
-    }, 2000);
-    
-    return payment;
   },
 
   // Get all payments (admin only)
