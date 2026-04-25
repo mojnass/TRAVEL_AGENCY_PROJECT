@@ -1,23 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, MapPin, Calendar, Users } from 'lucide-react';
 import { hotelService } from '../lib/hotelService';
 import { flightService } from '../lib/flightService';
 import { restaurantService } from '../lib/restaurantService';
 import { attractionService } from '../lib/attractionService';
+import { spaService } from '../lib/spaService';
 
-export const SearchComponent = ({ onResults }) => {
-  const [searchType, setSearchType] = useState('hotels');
+export const SearchComponent = ({ onResults, onSearchStart, initialSearchType }) => {
+  const [searchType, setSearchType] = useState(initialSearchType || 'hotels');
   const [location, setLocation] = useState('');
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [guests, setGuests] = useState(2);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Update search type when initialSearchType changes
+  useEffect(() => {
+    if (initialSearchType) {
+      setSearchType(initialSearchType);
+    }
+  }, [initialSearchType]);
+
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!location) return;
 
     setIsLoading(true);
+    onSearchStart?.(); // Call onSearchStart if provided
     try {
       let results = [];
 
@@ -34,6 +43,14 @@ export const SearchComponent = ({ onResults }) => {
           break;
         case 'attractions':
           results = await attractionService.searchAttractions(location);
+          break;
+        case 'spa':
+          results = await spaService.searchSpaVenues(location);
+          break;
+        case 'bundles':
+          // For bundles, show a message to build bundles
+          results = [];
+          alert('Build your own bundle by adding items to your cart from different services!');
           break;
         default:
           results = [];
@@ -66,6 +83,8 @@ export const SearchComponent = ({ onResults }) => {
             <option value="flights">Flights</option>
             <option value="restaurants">Restaurants</option>
             <option value="attractions">Attractions</option>
+            <option value="spa">Spa & Wellness</option>
+            <option value="bundles">Travel Bundles</option>
           </select>
         </div>
 

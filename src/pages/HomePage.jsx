@@ -185,37 +185,37 @@ export const HomePage = () => {
             <ServiceCard
               icon={Plane}
               title="Flight Search"
-              description="Real-time pricing from multiple airlines, seat selection, and multi-city support with IATA autocomplete."
+              description="Search flights by route, date, and passenger count. Real-time pricing and availability from major airlines."
               color="blue"
-              onClick={() => navigate('/search')}
+              onClick={() => navigate('/search?type=flights')}
             />
             <ServiceCard
               icon={Hotel}
-              title="Hotel Bookings"
-              description="Browse worldwide hotels with star ratings, guest reviews, amenity filters, and instant confirmation."
+              title="Hotel Booking"
+              description="Find hotels by location, dates, and guest count. Filter by amenities, price range, and guest ratings."
               color="indigo"
-              onClick={() => navigate('/search')}
+              onClick={() => navigate('/search?type=hotels')}
             />
             <ServiceCard
               icon={Utensils}
               title="Restaurant Reservations"
               description="Discover restaurants by cuisine, price tier and dietary needs. Book a table with real-time slot availability."
               color="orange"
-              onClick={() => navigate('/search')}
+              onClick={() => navigate('/search?type=restaurants')}
             />
             <ServiceCard
               icon={Ticket}
               title="Attractions"
               description="Purchase tickets to museums, landmarks, and activities. Advance booking with QR-code entry."
               color="green"
-              onClick={() => navigate('/search')}
+              onClick={() => navigate('/search?type=attractions')}
             />
             <ServiceCard
               icon={Sparkles}
               title="Spa & Wellness"
               description="Book spa treatments, hammams, and wellness retreats. Choose your service, date, and therapist preference."
               color="purple"
-              onClick={() => navigate('/search')}
+              onClick={() => navigate('/search?type=spa')}
             />
             <ServiceCard
               icon={Users}
@@ -223,7 +223,7 @@ export const HomePage = () => {
               description="Curated packages or build-your-own bundles with auto-applied discounts up to 15% for 5+ items."
               color="teal"
               featured
-              onClick={() => navigate('/search')}
+              onClick={() => navigate('/search?type=bundles')}
             />
           </div>
         </div>

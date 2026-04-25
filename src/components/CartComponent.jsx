@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { ShoppingCart, X, Plus, Minus, CreditCard, Package, Download } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';

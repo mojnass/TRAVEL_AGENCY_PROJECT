@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Package, Save, Share2, Download } from 'lucide-react';
 import { bundleService } from '../lib/bundleService';
 import { itineraryService } from '../lib/itineraryService';

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SearchComponent } from '../components/SearchComponent';
 import { ResultsDisplay } from '../components/ResultsDisplay';
 import { CartComponent } from '../components/CartComponent';
@@ -9,9 +9,18 @@ import { Plane } from 'lucide-react';
 
 export const SearchPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [searchResults, setSearchResults] = useState([]);
-  const [searchType, setSearchType]       = useState('');
-  const [isSearching, setIsSearching]     = useState(false);
+  const [searchType, setSearchType] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Set search type from URL parameter on mount
+  useEffect(() => {
+    const typeFromUrl = searchParams.get('type');
+    if (typeFromUrl) {
+      setSearchType(typeFromUrl);
+    }
+  }, [searchParams]);
 
   const handleResults = (results, type) => {
     setSearchResults(results);
@@ -52,6 +61,7 @@ export const SearchPage = () => {
             <SearchComponent
               onResults={handleResults}
               onSearchStart={handleSearchStart}
+              initialSearchType={searchType}
             />
             <CartComponent />
             <BundleCreator />
