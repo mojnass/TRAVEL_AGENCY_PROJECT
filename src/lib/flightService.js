@@ -4,8 +4,6 @@ import { duffelService } from './duffel';
 export const flightService = {
   // Search for flights using Duffel API with caching
   async searchFlights(origin, destination, departureDate, returnDate = null, passengerCount = 1, cabinClass = 'economy') {
-    console.log('🛫 flightService.searchFlights called with:', { origin, destination, departureDate, returnDate, passengerCount, cabinClass });
-    
     try {
       // Check cache first
       const { data: cachedData } = await supabase
@@ -20,12 +18,10 @@ export const flightService = {
         .maybeSingle();
       
       if (cachedData) {
-        console.log('Using cached flight results');
         return cachedData.search_results;
       }
       
       // Use Duffel API for real flight search
-      console.log('Searching flights with Duffel API...');
       const flightResults = await duffelService.searchFlights(origin, destination, departureDate, returnDate, passengerCount);
       
       // Cache the results for 1 hour

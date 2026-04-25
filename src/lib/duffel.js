@@ -1,9 +1,6 @@
 // This function uses your Vite proxy (/duffel) to talk to Duffel
 export const searchFlights = async (origin, destination, departureDate) => {
-  console.log('✈️ duffelService.searchFlights called with:', { origin, destination, departureDate });
-  
   const token = import.meta.env.VITE_DUFFEL_ACCESS_TOKEN;
-  console.log('🔑 Duffel token found:', !!token);
 
   if (!token) {
     console.error('Duffel token not found in environment variables');
@@ -30,7 +27,7 @@ export const searchFlights = async (origin, destination, departureDate) => {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
-        'Duffel-Version': 'v1', // Duffel requires this header
+        'Duffel-Version': 'v2', // Updated to latest version
       },
       body: JSON.stringify(body),
     });

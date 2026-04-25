@@ -5,6 +5,7 @@ import { flightService } from '../lib/flightService';
 import { restaurantService } from '../lib/restaurantService';
 import { attractionService } from '../lib/attractionService';
 import { spaService } from '../lib/spaService';
+import { airports, cities } from '../data/airports.js';
 
 export const SearchComponent = ({ onResults, onSearchStart, initialSearchType }) => {
   const [searchType, setSearchType] = useState(initialSearchType || 'hotels');
@@ -20,16 +21,8 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType })
   useEffect(() => {
     if (initialSearchType) {
       setSearchType(initialSearchType);
-      console.log('🎯 SearchComponent searchType set to:', initialSearchType);
     }
   }, [initialSearchType]);
-
-  // Log current search type for debugging
-  useEffect(() => {
-    console.log('🔍 SearchComponent current searchType:', searchType);
-    console.log('🔍 Should show flight fields:', searchType === 'flights');
-    console.log('🔍 InitialSearchType received:', initialSearchType);
-  }, [searchType, initialSearchType]);
 
   // Reset form fields when search type changes
   useEffect(() => {
@@ -72,9 +65,7 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType })
           results = await hotelService.searchHotels(location, checkIn, checkOut, guests);
           break;
         case 'flights':
-          console.log('🔍 Flight search called with:', { origin, destination, checkIn, guests });
           results = await flightService.searchFlights(origin, destination, checkIn, checkOut, guests);
-          console.log('✅ Flight search results:', results);
           break;
         case 'restaurants':
           results = await restaurantService.searchRestaurants(location, null, guests);
@@ -97,6 +88,29 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType })
       onResults(results, searchType);
     } catch (error) {
       console.error('Search failed:', error);
+      
+      // Better error messages based on search type
+      let errorMessage = 'Search failed. Please try again.';
+      
+      if (searchType === 'flights') {
+        if (error.message.includes('No flights found') || results.length === 0) {
+          errorMessage = 'No flights found for this route and date. Try different airports or dates.';
+        } else if (error.message.includes('origin') || error.message.includes('destination')) {
+          errorMessage = 'Invalid airport selection. Please check your origin and destination airports.';
+        } else if (error.message.includes('date')) {
+          errorMessage = 'Invalid date. Please select a future date for departure.';
+        }
+      } else if (searchType === 'hotels') {
+        errorMessage = 'No hotels found in this city for the selected dates. Try different dates or a nearby city.';
+      } else if (searchType === 'restaurants') {
+        errorMessage = 'No restaurants found in this city. Try a different city or check back later.';
+      } else if (searchType === 'attractions') {
+        errorMessage = 'No attractions found in this city. Try a different city or expand your search.';
+      } else if (searchType === 'spa') {
+        errorMessage = 'No spa services found in this city. Try a different city or check back later.';
+      }
+      
+      alert(errorMessage);
       onResults([], searchType);
     } finally {
       setIsLoading(false);
@@ -131,16 +145,21 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType })
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
               <MapPin className="w-4 h-4 inline mr-1" />
-              Location
+              City
             </label>
-            <input
-              type="text"
+            <select
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="City or destination"
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
               required
-            />
+            >
+              <option value="">Select a city</option>
+              {cities.map(city => (
+                <option key={city.name} value={city.name}>
+                  {city.name}, {city.country}
+                </option>
+              ))}
+            </select>
           </div>
         )}
 
@@ -150,29 +169,39 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType })
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Origin
+                  Origin Airport
                 </label>
-                <input
-                  type="text"
+                <select
                   value={origin}
                   onChange={(e) => setOrigin(e.target.value)}
-                  placeholder="Departure city (e.g., NYC)"
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
                   required
-                />
+                >
+                  <option value="">Select origin airport</option>
+                  {airports.map(airport => (
+                    <option key={airport.code} value={airport.code}>
+                      {airport.code} - {airport.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Destination
+                  Destination Airport
                 </label>
-                <input
-                  type="text"
+                <select
                   value={destination}
                   onChange={(e) => setDestination(e.target.value)}
-                  placeholder="Arrival city (e.g., DXB)"
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
                   required
-                />
+                >
+                  <option value="">Select destination airport</option>
+                  {airports.map(airport => (
+                    <option key={airport.code} value={airport.code}>
+                      {airport.code} - {airport.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
             <div>
