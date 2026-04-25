@@ -8,7 +8,9 @@ import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SearchPage } from './pages/SearchPage';
-
+import { AdminPage } from './pages/AdminPage';
+import { BundleViewPage } from './pages/BundleViewPage';
+import { ItineraryPage } from './pages/ItineraryPage';
 // Jad Al Btaddini — Hotels, Restaurants, Attractions, Spa
 import { HotelsPage } from './pages/HotelsPage';
 import { RestaurantsPage } from './pages/RestaurantsPage';
