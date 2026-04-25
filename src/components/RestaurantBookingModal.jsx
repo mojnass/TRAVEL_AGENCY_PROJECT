@@ -1,0 +1,561 @@
+import React, { useState } from 'react';
+import { X, Calendar, Users, CreditCard, Shield, Utensils, Clock, MapPin } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { bookingService } from '../lib/bookingService';
+import { useAuth } from '../context/AuthContext';
+
+export const RestaurantBookingModal = ({ restaurant, isOpen, onClose, onBookingSuccess }) => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [bookingData, setBookingData] = useState({
+    guests: [
+      {
+        first_name: '',
+        last_name: '',
+        email: user?.email || '',
+        phone: '',
+        dietary_restrictions: ''
+      }
+    ],
+    reservation_date: '',
+    reservation_time: '',
+    party_size: 2,
+    occasion: 'casual',
+    special_requests: '',
+    additional_services: {
+      private_dining: false,
+      wine_pairing: false,
+      chef_table: false
+    },
+    payment_method: 'credit_card'
+  });
+  
+  const [isBooking, setIsBooking] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [errors, setErrors] = useState({});
+
+  const validateGuest = (guest) => {
+    const errors = {};
+    if (!guest.first_name) errors.first_name = 'First name is required';
+    if (!guest.last_name) errors.last_name = 'Last name is required';
+    if (!guest.email) errors.email = 'Email is required';
+    if (!guest.phone) errors.phone = 'Phone is required';
+    return errors;
+  };
+
+  const handleNextStep = () => {
+    const newErrors = validateGuest(bookingData.guests[0]);
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    
+    setErrors({});
+    setCurrentStep(currentStep + 1);
+  };
+
+  const handleBooking = async () => {
+    if (!user) {
+      alert('Please log in to make a booking');
+      return;
+    }
+
+    setIsBooking(true);
+    setErrors({});
+
+    try {
+      const bookingPayload = {
+        user_id: user.id,
+        booking_type: 'restaurant',
+        service_id: restaurant.restaurant_id,
+        restaurant_details: {
+          name: restaurant.name,
+          cuisine: restaurant.cuisine,
+          city: restaurant.city,
+          rating: restaurant.rating
+        },
+        guests: bookingData.guests,
+        reservation_date: bookingData.reservation_date,
+        reservation_time: bookingData.reservation_time,
+        party_size: bookingData.party_size,
+        occasion: bookingData.occasion,
+        special_requests: bookingData.special_requests,
+        additional_services: bookingData.additional_services,
+        total_price: calculateTotalPrice(),
+        currency: 'USD',
+        status: 'pending',
+        payment_method: bookingData.payment_method
+      };
+
+      const booking = await bookingService.createBooking(bookingPayload);
+      
+      setIsBooking(false);
+      onBookingSuccess(booking);
+      onClose();
+      
+      // Navigate to booking confirmation page
+      navigate(`/booking-confirmation/${booking.booking_id}`);
+      
+    } catch (error) {
+      setIsBooking(false);
+      setErrors({ booking: error.message });
+    }
+  };
+
+  const calculateTotalPrice = () => {
+    let basePrice = 50; // Base reservation fee
+    let additionalCost = 0;
+    
+    if (bookingData.additional_services.private_dining) additionalCost += 200;
+    if (bookingData.additional_services.wine_pairing) additionalCost += 75;
+    if (bookingData.additional_services.chef_table) additionalCost += 150;
+    
+    return basePrice + additionalCost;
+  };
+
+  const addGuest = () => {
+    setBookingData(prev => ({
+      ...prev,
+      guests: [...prev.guests, {
+        first_name: '',
+        last_name: '',
+        email: '',
+        phone: '',
+        dietary_restrictions: ''
+      }]
+    }));
+  };
+
+  const updateGuest = (index, field, value) => {
+    const newGuests = [...bookingData.guests];
+    newGuests[index][field] = value;
+    setBookingData(prev => ({ ...prev, guests: newGuests }));
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="sticky top-0 bg-white border-b border-slate-200 p-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Book Your Table</h2>
+              <p className="text-slate-600 mt-1">
+                {restaurant.name} • {restaurant.cuisine} • {restaurant.city}
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-slate-100 rounded-lg transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Progress Steps */}
+        <div className="px-6 py-4 border-b border-slate-200">
+          <div className="flex items-center justify-between">
+            {[1, 2, 3].map((step) => (
+              <div key={step} className="flex items-center">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  currentStep >= step ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'
+                }`}>
+                  {step}
+                </div>
+                <span className={`ml-2 text-sm ${
+                  currentStep >= step ? 'text-blue-600 font-medium' : 'text-slate-600'
+                }`}>
+                  {step === 1 ? 'Guests' : step === 2 ? 'Services' : 'Payment'}
+                </span>
+                {step < 3 && (
+                  <div className={`w-16 h-0.5 mx-4 ${
+                    currentStep > step ? 'bg-blue-600' : 'bg-slate-200'
+                  }`} />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          {/* Step 1: Guest Details */}
+          {currentStep === 1 && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-slate-900">Reservation Details</h3>
+              
+              {/* Reservation Information */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Reservation Date</label>
+                  <input
+                    type="date"
+                    value={bookingData.reservation_date}
+                    onChange={(e) => setBookingData(prev => ({ ...prev, reservation_date: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Reservation Time</label>
+                  <select
+                    value={bookingData.reservation_time}
+                    onChange={(e) => setBookingData(prev => ({ ...prev, reservation_time: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="">Select time</option>
+                    <option value="11:00">11:00 AM</option>
+                    <option value="11:30">11:30 AM</option>
+                    <option value="12:00">12:00 PM</option>
+                    <option value="12:30">12:30 PM</option>
+                    <option value="13:00">1:00 PM</option>
+                    <option value="13:30">1:30 PM</option>
+                    <option value="14:00">2:00 PM</option>
+                    <option value="18:00">6:00 PM</option>
+                    <option value="18:30">6:30 PM</option>
+                    <option value="19:00">7:00 PM</option>
+                    <option value="19:30">7:30 PM</option>
+                    <option value="20:00">8:00 PM</option>
+                    <option value="20:30">8:30 PM</option>
+                    <option value="21:00">9:00 PM</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Party Size</label>
+                  <select
+                    value={bookingData.party_size}
+                    onChange={(e) => setBookingData(prev => ({ ...prev, party_size: parseInt(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  >
+                    <option value={1}>1 Person</option>
+                    <option value={2}>2 People</option>
+                    <option value={3}>3 People</option>
+                    <option value={4}>4 People</option>
+                    <option value={5}>5 People</option>
+                    <option value={6}>6 People</option>
+                    <option value={7}>7 People</option>
+                    <option value={8}>8 People</option>
+                    <option value={9}>9 People</option>
+                    <option value={10}>10+ People</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Occasion</label>
+                  <select
+                    value={bookingData.occasion}
+                    onChange={(e) => setBookingData(prev => ({ ...prev, occasion: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="casual">Casual Dining</option>
+                    <option value="business">Business Meeting</option>
+                    <option value="romantic">Romantic Dinner</option>
+                    <option value="birthday">Birthday Celebration</option>
+                    <option value="anniversary">Anniversary</option>
+                    <option value="family">Family Gathering</option>
+                    <option value="special">Special Occasion</option>
+                  </select>
+                </div>
+              </div>
+              
+              {/* Guest Information */}
+              <h4 className="font-medium text-slate-900 mt-6">Primary Guest Information</h4>
+              {bookingData.guests.map((guest, index) => (
+                <div key={index} className="border border-slate-200 rounded-lg p-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">First Name</label>
+                      <input
+                        type="text"
+                        value={guest.first_name}
+                        onChange={(e) => updateGuest(index, 'first_name', e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Last Name</label>
+                      <input
+                        type="text"
+                        value={guest.last_name}
+                        onChange={(e) => updateGuest(index, 'last_name', e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                      <input
+                        type="email"
+                        value={guest.email}
+                        onChange={(e) => updateGuest(index, 'email', e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Phone</label>
+                      <input
+                        type="tel"
+                        value={guest.phone}
+                        onChange={(e) => updateGuest(index, 'phone', e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Dietary Restrictions</label>
+                      <input
+                        type="text"
+                        value={guest.dietary_restrictions}
+                        onChange={(e) => updateGuest(index, 'dietary_restrictions', e.target.value)}
+                        placeholder="e.g., Vegetarian, Gluten-free, Allergies"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {/* Special Requests */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Special Requests</label>
+                <textarea
+                  value={bookingData.special_requests}
+                  onChange={(e) => setBookingData(prev => ({ ...prev, special_requests: e.target.value }))}
+                  placeholder="Any special requests or preferences..."
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Additional Services */}
+          {currentStep === 2 && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-slate-900">Additional Services</h3>
+              
+              <div className="space-y-3">
+                <h4 className="font-medium text-slate-900">Premium Services</h4>
+                
+                <label className="flex items-center justify-between p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                  <div className="flex items-center gap-3">
+                    <Shield className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium text-slate-900">Private Dining Room</p>
+                      <p className="text-sm text-slate-600">Exclusive private dining experience</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <input
+                      type="checkbox"
+                      checked={bookingData.additional_services.private_dining}
+                      onChange={(e) => setBookingData(prev => ({
+                        ...prev,
+                        additional_services: { ...prev.additional_services, private_dining: e.target.checked }
+                      }))}
+                      className="w-4 h-4 text-blue-600"
+                    />
+                    <p className="text-sm text-slate-600 mt-1">+$200</p>
+                  </div>
+                </label>
+                
+                <label className="flex items-center justify-between p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                  <div className="flex items-center gap-3">
+                    <Utensils className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium text-slate-900">Wine Pairing Experience</p>
+                      <p className="text-sm text-slate-600">Curated wine pairing with sommelier</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <input
+                      type="checkbox"
+                      checked={bookingData.additional_services.wine_pairing}
+                      onChange={(e) => setBookingData(prev => ({
+                        ...prev,
+                        additional_services: { ...prev.additional_services, wine_pairing: e.target.checked }
+                      }))}
+                      className="w-4 h-4 text-blue-600"
+                    />
+                    <p className="text-sm text-slate-600 mt-1">+$75</p>
+                  </div>
+                </label>
+                
+                <label className="flex items-center justify-between p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                  <div className="flex items-center gap-3">
+                    <MapPin className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium text-slate-900">Chef's Table Experience</p>
+                      <p className="text-sm text-slate-600">Dine at the chef's exclusive table</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <input
+                      type="checkbox"
+                      checked={bookingData.additional_services.chef_table}
+                      onChange={(e) => setBookingData(prev => ({
+                        ...prev,
+                        additional_services: { ...prev.additional_services, chef_table: e.target.checked }
+                      }))}
+                      className="w-4 h-4 text-blue-600"
+                    />
+                    <p className="text-sm text-slate-600 mt-1">+$150</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Payment */}
+          {currentStep === 3 && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-slate-900">Payment Information</h3>
+              
+              <div className="border border-slate-200 rounded-lg p-4">
+                <h4 className="font-medium text-slate-900 mb-3">Reservation Summary</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Restaurant:</span>
+                    <span className="font-medium">{restaurant.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Date:</span>
+                    <span className="font-medium">{bookingData.reservation_date}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Time:</span>
+                    <span className="font-medium">{bookingData.reservation_time}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Party Size:</span>
+                    <span className="font-medium">{bookingData.party_size} guests</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Occasion:</span>
+                    <span className="font-medium">{bookingData.occasion}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Reservation Fee:</span>
+                    <span className="font-medium">$50</span>
+                  </div>
+                  {bookingData.additional_services.private_dining && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Private Dining:</span>
+                      <span className="font-medium">+$200</span>
+                    </div>
+                  )}
+                  {bookingData.additional_services.wine_pairing && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Wine Pairing:</span>
+                      <span className="font-medium">+$75</span>
+                    </div>
+                  )}
+                  {bookingData.additional_services.chef_table && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Chef's Table:</span>
+                      <span className="font-medium">+$150</span>
+                    </div>
+                  )}
+                  <div className="border-t border-slate-200 pt-2 mt-2">
+                    <div className="flex justify-between">
+                      <span className="font-semibold text-slate-900">Total:</span>
+                      <span className="font-bold text-blue-600 text-lg">${calculateTotalPrice()}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Payment Method</label>
+                <select
+                  value={bookingData.payment_method}
+                  onChange={(e) => setBookingData(prev => ({ ...prev, payment_method: e.target.value }))}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                >
+                  <option value="credit_card">Credit Card</option>
+                  <option value="debit_card">Debit Card</option>
+                  <option value="paypal">PayPal</option>
+                </select>
+              </div>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-blue-900">Secure Payment</p>
+                    <p className="text-sm text-blue-700 mt-1">
+                      Your payment information is encrypted and secure. We never store your credit card details.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Error Display */}
+          {errors.booking && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-red-600">{errors.booking}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="sticky bottom-0 bg-white border-t border-slate-200 p-6">
+          <div className="flex justify-between items-center">
+            <div>
+              {currentStep > 1 && (
+                <button
+                  onClick={() => setCurrentStep(currentStep - 1)}
+                  className="px-4 py-2 text-slate-600 hover:text-slate-900 transition"
+                >
+                  Back
+                </button>
+              )}
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+              
+              {currentStep < 3 ? (
+                <button
+                  onClick={handleNextStep}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  Next
+                </button>
+              ) : (
+                <button
+                  onClick={handleBooking}
+                  disabled={isBooking}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 transition flex items-center gap-2"
+                >
+                  {isBooking ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    `Complete Reservation - $${calculateTotalPrice()}`
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

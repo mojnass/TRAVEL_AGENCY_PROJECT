@@ -1,0 +1,562 @@
+import React, { useState } from 'react';
+import { X, Calendar, Users, CreditCard, Shield, Ticket, Clock, MapPin } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { bookingService } from '../lib/bookingService';
+import { useAuth } from '../context/AuthContext';
+
+export const AttractionBookingModal = ({ attraction, isOpen, onClose, onBookingSuccess }) => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [bookingData, setBookingData] = useState({
+    visitors: [
+      {
+        first_name: '',
+        last_name: '',
+        email: user?.email || '',
+        phone: '',
+        age: ''
+      }
+    ],
+    visit_date: '',
+    visit_time: '',
+    ticket_type: 'adult',
+    quantity: 1,
+    additional_services: {
+      guided_tour: false,
+      audio_guide: false,
+      skip_line: false,
+      photo_package: false
+    },
+    payment_method: 'credit_card'
+  });
+  
+  const [isBooking, setIsBooking] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [errors, setErrors] = useState({});
+
+  const validateVisitor = (visitor) => {
+    const errors = {};
+    if (!visitor.first_name) errors.first_name = 'First name is required';
+    if (!visitor.last_name) errors.last_name = 'Last name is required';
+    if (!visitor.email) errors.email = 'Email is required';
+    if (!visitor.phone) errors.phone = 'Phone is required';
+    if (!visitor.age) errors.age = 'Age is required';
+    return errors;
+  };
+
+  const handleNextStep = () => {
+    const newErrors = validateVisitor(bookingData.visitors[0]);
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    
+    setErrors({});
+    setCurrentStep(currentStep + 1);
+  };
+
+  const handleBooking = async () => {
+    if (!user) {
+      alert('Please log in to make a booking');
+      return;
+    }
+
+    setIsBooking(true);
+    setErrors({});
+
+    try {
+      const bookingPayload = {
+        user_id: user.id,
+        booking_type: 'attraction',
+        service_id: attraction.attraction_id,
+        attraction_details: {
+          name: attraction.name,
+          category: attraction.category,
+          city: attraction.city,
+          rating: attraction.rating
+        },
+        guests: bookingData.visitors,
+        visit_date: bookingData.visit_date,
+        visit_time: bookingData.visit_time,
+        ticket_type: bookingData.ticket_type,
+        quantity: bookingData.quantity,
+        additional_services: bookingData.additional_services,
+        total_price: calculateTotalPrice(),
+        currency: 'USD',
+        status: 'pending',
+        payment_method: bookingData.payment_method
+      };
+
+      const booking = await bookingService.createBooking(bookingPayload);
+      
+      setIsBooking(false);
+      onBookingSuccess(booking);
+      onClose();
+      
+      // Navigate to booking confirmation page
+      navigate(`/booking-confirmation/${booking.booking_id}`);
+      
+    } catch (error) {
+      setIsBooking(false);
+      setErrors({ booking: error.message });
+    }
+  };
+
+  const calculateTotalPrice = () => {
+    let basePrice = attraction.ticket_price || 25;
+    let additionalCost = 0;
+    
+    if (bookingData.additional_services.guided_tour) additionalCost += 30;
+    if (bookingData.additional_services.audio_guide) additionalCost += 10;
+    if (bookingData.additional_services.skip_line) additionalCost += 20;
+    if (bookingData.additional_services.photo_package) additionalCost += 15;
+    
+    return (basePrice * bookingData.quantity) + additionalCost;
+  };
+
+  const addVisitor = () => {
+    setBookingData(prev => ({
+      ...prev,
+      visitors: [...prev.visitors, {
+        first_name: '',
+        last_name: '',
+        email: '',
+        phone: '',
+        age: ''
+      }]
+    }));
+  };
+
+  const updateVisitor = (index, field, value) => {
+    const newVisitors = [...bookingData.visitors];
+    newVisitors[index][field] = value;
+    setBookingData(prev => ({ ...prev, visitors: newVisitors }));
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="sticky top-0 bg-white border-b border-slate-200 p-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Book Your Tickets</h2>
+              <p className="text-slate-600 mt-1">
+                {attraction.name} • {attraction.category} • {attraction.city}
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-slate-100 rounded-lg transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Progress Steps */}
+        <div className="px-6 py-4 border-b border-slate-200">
+          <div className="flex items-center justify-between">
+            {[1, 2, 3].map((step) => (
+              <div key={step} className="flex items-center">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  currentStep >= step ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'
+                }`}>
+                  {step}
+                </div>
+                <span className={`ml-2 text-sm ${
+                  currentStep >= step ? 'text-blue-600 font-medium' : 'text-slate-600'
+                }`}>
+                  {step === 1 ? 'Visitors' : step === 2 ? 'Services' : 'Payment'}
+                </span>
+                {step < 3 && (
+                  <div className={`w-16 h-0.5 mx-4 ${
+                    currentStep > step ? 'bg-blue-600' : 'bg-slate-200'
+                  }`} />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          {/* Step 1: Visitor Details */}
+          {currentStep === 1 && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-slate-900">Visit Information</h3>
+              
+              {/* Visit Information */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Visit Date</label>
+                  <input
+                    type="date"
+                    value={bookingData.visit_date}
+                    onChange={(e) => setBookingData(prev => ({ ...prev, visit_date: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Visit Time</label>
+                  <select
+                    value={bookingData.visit_time}
+                    onChange={(e) => setBookingData(prev => ({ ...prev, visit_time: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="">Select time</option>
+                    <option value="09:00">9:00 AM</option>
+                    <option value="10:00">10:00 AM</option>
+                    <option value="11:00">11:00 AM</option>
+                    <option value="12:00">12:00 PM</option>
+                    <option value="13:00">1:00 PM</option>
+                    <option value="14:00">2:00 PM</option>
+                    <option value="15:00">3:00 PM</option>
+                    <option value="16:00">4:00 PM</option>
+                    <option value="17:00">5:00 PM</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Ticket Type</label>
+                  <select
+                    value={bookingData.ticket_type}
+                    onChange={(e) => setBookingData(prev => ({ ...prev, ticket_type: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="adult">Adult</option>
+                    <option value="child">Child (under 12)</option>
+                    <option value="senior">Senior (65+)</option>
+                    <option value="student">Student</option>
+                    <option value="family">Family (2 adults + 2 children)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Quantity</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={bookingData.quantity}
+                    onChange={(e) => setBookingData(prev => ({ ...prev, quantity: parseInt(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              
+              {/* Visitor Information */}
+              <h4 className="font-medium text-slate-900 mt-6">Primary Visitor Information</h4>
+              {bookingData.visitors.map((visitor, index) => (
+                <div key={index} className="border border-slate-200 rounded-lg p-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">First Name</label>
+                      <input
+                        type="text"
+                        value={visitor.first_name}
+                        onChange={(e) => updateVisitor(index, 'first_name', e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Last Name</label>
+                      <input
+                        type="text"
+                        value={visitor.last_name}
+                        onChange={(e) => updateVisitor(index, 'last_name', e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                      <input
+                        type="email"
+                        value={visitor.email}
+                        onChange={(e) => updateVisitor(index, 'email', e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Phone</label>
+                      <input
+                        type="tel"
+                        value={visitor.phone}
+                        onChange={(e) => updateVisitor(index, 'phone', e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Age</label>
+                      <input
+                        type="number"
+                        value={visitor.age}
+                        onChange={(e) => updateVisitor(index, 'age', e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Step 2: Additional Services */}
+          {currentStep === 2 && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-slate-900">Additional Services</h3>
+              
+              <div className="space-y-3">
+                <h4 className="font-medium text-slate-900">Enhance Your Experience</h4>
+                
+                <label className="flex items-center justify-between p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                  <div className="flex items-center gap-3">
+                    <Shield className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium text-slate-900">Guided Tour</p>
+                      <p className="text-sm text-slate-600">Expert guide with detailed commentary</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <input
+                      type="checkbox"
+                      checked={bookingData.additional_services.guided_tour}
+                      onChange={(e) => setBookingData(prev => ({
+                        ...prev,
+                        additional_services: { ...prev.additional_services, guided_tour: e.target.checked }
+                      }))}
+                      className="w-4 h-4 text-blue-600"
+                    />
+                    <p className="text-sm text-slate-600 mt-1">+$30</p>
+                  </div>
+                </label>
+                
+                <label className="flex items-center justify-between p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                  <div className="flex items-center gap-3">
+                    <Clock className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium text-slate-900">Audio Guide</p>
+                      <p className="text-sm text-slate-600">Self-guided audio tour in multiple languages</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <input
+                      type="checkbox"
+                      checked={bookingData.additional_services.audio_guide}
+                      onChange={(e) => setBookingData(prev => ({
+                        ...prev,
+                        additional_services: { ...prev.additional_services, audio_guide: e.target.checked }
+                      }))}
+                      className="w-4 h-4 text-blue-600"
+                    />
+                    <p className="text-sm text-slate-600 mt-1">+$10</p>
+                  </div>
+                </label>
+                
+                <label className="flex items-center justify-between p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                  <div className="flex items-center gap-3">
+                    <Ticket className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium text-slate-900">Skip-the-Line Access</p>
+                      <p className="text-sm text-slate-600">Priority entrance, no waiting</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <input
+                      type="checkbox"
+                      checked={bookingData.additional_services.skip_line}
+                      onChange={(e) => setBookingData(prev => ({
+                        ...prev,
+                        additional_services: { ...prev.additional_services, skip_line: e.target.checked }
+                      }))}
+                      className="w-4 h-4 text-blue-600"
+                    />
+                    <p className="text-sm text-slate-600 mt-1">+$20</p>
+                  </div>
+                </label>
+                
+                <label className="flex items-center justify-between p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                  <div className="flex items-center gap-3">
+                    <MapPin className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium text-slate-900">Photo Package</p>
+                      <p className="text-sm text-slate-600">Professional photography service</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <input
+                      type="checkbox"
+                      checked={bookingData.additional_services.photo_package}
+                      onChange={(e) => setBookingData(prev => ({
+                        ...prev,
+                        additional_services: { ...prev.additional_services, photo_package: e.target.checked }
+                      }))}
+                      className="w-4 h-4 text-blue-600"
+                    />
+                    <p className="text-sm text-slate-600 mt-1">+$15</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Payment */}
+          {currentStep === 3 && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-slate-900">Payment Information</h3>
+              
+              <div className="border border-slate-200 rounded-lg p-4">
+                <h4 className="font-medium text-slate-900 mb-3">Booking Summary</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Attraction:</span>
+                    <span className="font-medium">{attraction.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Date:</span>
+                    <span className="font-medium">{bookingData.visit_date}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Time:</span>
+                    <span className="font-medium">{bookingData.visit_time}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Ticket Type:</span>
+                    <span className="font-medium">{bookingData.ticket_type}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Quantity:</span>
+                    <span className="font-medium">{bookingData.quantity}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Ticket Price:</span>
+                    <span className="font-medium">${attraction.ticket_price || 25}</span>
+                  </div>
+                  {bookingData.additional_services.guided_tour && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Guided Tour:</span>
+                      <span className="font-medium">+$30</span>
+                    </div>
+                  )}
+                  {bookingData.additional_services.audio_guide && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Audio Guide:</span>
+                      <span className="font-medium">+$10</span>
+                    </div>
+                  )}
+                  {bookingData.additional_services.skip_line && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Skip-the-Line:</span>
+                      <span className="font-medium">+$20</span>
+                    </div>
+                  )}
+                  {bookingData.additional_services.photo_package && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Photo Package:</span>
+                      <span className="font-medium">+$15</span>
+                    </div>
+                  )}
+                  <div className="border-t border-slate-200 pt-2 mt-2">
+                    <div className="flex justify-between">
+                      <span className="font-semibold text-slate-900">Total:</span>
+                      <span className="font-bold text-blue-600 text-lg">${calculateTotalPrice()}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Payment Method</label>
+                <select
+                  value={bookingData.payment_method}
+                  onChange={(e) => setBookingData(prev => ({ ...prev, payment_method: e.target.value }))}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                >
+                  <option value="credit_card">Credit Card</option>
+                  <option value="debit_card">Debit Card</option>
+                  <option value="paypal">PayPal</option>
+                </select>
+              </div>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-blue-900">Secure Payment</p>
+                    <p className="text-sm text-blue-700 mt-1">
+                      Your payment information is encrypted and secure. We never store your credit card details.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Error Display */}
+          {errors.booking && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-red-600">{errors.booking}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="sticky bottom-0 bg-white border-t border-slate-200 p-6">
+          <div className="flex justify-between items-center">
+            <div>
+              {currentStep > 1 && (
+                <button
+                  onClick={() => setCurrentStep(currentStep - 1)}
+                  className="px-4 py-2 text-slate-600 hover:text-slate-900 transition"
+                >
+                  Back
+                </button>
+              )}
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+              
+              {currentStep < 3 ? (
+                <button
+                  onClick={handleNextStep}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  Next
+                </button>
+              ) : (
+                <button
+                  onClick={handleBooking}
+                  disabled={isBooking}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 transition flex items-center gap-2"
+                >
+                  {isBooking ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    `Complete Booking - $${calculateTotalPrice()}`
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
