@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Package, Save, Share2 } from 'lucide-react';
+import { Package, Save, Share2, Download } from 'lucide-react';
 import { bundleService } from '../lib/bundleService';
+import { itineraryService } from '../lib/itineraryService';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 
@@ -12,6 +13,8 @@ export const BundleCreator = () => {
   const [destination, setDestination] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [shareableLink, setShareableLink] = useState('');
+  const [pdfUrl, setPdfUrl] = useState('');
+  const [showPdfDownload, setShowPdfDownload] = useState(false);
 
   const handleCreateBundle = async () => {
     if (!user) {
@@ -49,10 +52,15 @@ export const BundleCreator = () => {
 
       setShareableLink(bundle.shareable_link);
       
+      // Generate PDF itinerary
+      const itinerary = await itineraryService.generateItineraryPDF(bundle.user_bundle_id);
+      setPdfUrl(itinerary.pdfUrl);
+      setShowPdfDownload(true);
+      
       // Clear cart after successful bundle creation
       clearCart();
       
-      alert('Bundle created successfully!');
+      alert('Bundle created successfully! PDF itinerary generated.');
       
     } catch (error) {
       console.error('Bundle creation failed:', error);
@@ -67,6 +75,12 @@ export const BundleCreator = () => {
       const fullUrl = `${window.location.origin}/bundle/${shareableLink}`;
       navigator.clipboard.writeText(fullUrl);
       alert('Bundle link copied to clipboard!');
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    if (pdfUrl) {
+      window.open(pdfUrl, '_blank');
     }
   };
 
@@ -160,8 +174,8 @@ export const BundleCreator = () => {
           </div>
 
           {shareableLink ? (
-            <div className="space-y-2">
-              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="space-y-3">
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                 <p className="text-sm text-green-700 font-medium mb-2">Bundle Created!</p>
                 <p className="text-xs text-green-600 mb-2">Shareable link: {shareableLink}</p>
                 <button
@@ -172,6 +186,19 @@ export const BundleCreator = () => {
                   Copy Share Link
                 </button>
               </div>
+              
+              {showPdfDownload && (
+                <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                  <p className="text-sm text-purple-700 font-medium mb-2">PDF Itinerary Ready!</p>
+                  <button
+                    onClick={handleDownloadPDF}
+                    className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download PDF
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <button

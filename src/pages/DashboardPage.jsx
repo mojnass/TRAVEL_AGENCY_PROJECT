@@ -118,6 +118,15 @@ export const DashboardPage = () => {
           </Link>
 
           <div className="flex items-center gap-2">
+            {/* Itineraries Link */}
+            <Link
+              to="/dashboard/itineraries"
+              className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition text-slate-600"
+            >
+              <Package className="w-4 h-4" />
+              <span className="hidden sm:inline">Itineraries</span>
+            </Link>
+            
             {/* Notification bell */}
             <div className="relative">
               <button

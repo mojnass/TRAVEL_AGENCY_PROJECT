@@ -9,6 +9,8 @@ import { DashboardPage } from './pages/DashboardPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SearchPage } from './pages/SearchPage';
 import { AdminPage } from './pages/AdminPage';
+import { BundleViewPage } from './pages/BundleViewPage';
+import { ItineraryPage } from './pages/ItineraryPage';
 
 function App() {
   return (
@@ -20,12 +22,16 @@ function App() {
             <Route path="/login"   element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/search"  element={<SearchPage />} />
+            <Route path="/bundle/:shareableLink" element={<BundleViewPage />} />
 
             <Route path="/dashboard" element={
               <ProtectedRoute><DashboardPage /></ProtectedRoute>
             } />
             <Route path="/dashboard/profile" element={
               <ProtectedRoute><ProfilePage /></ProtectedRoute>
+            } />
+            <Route path="/dashboard/itineraries" element={
+              <ProtectedRoute><ItineraryPage /></ProtectedRoute>
             } />
             <Route path="/admin" element={
               <ProtectedRoute><AdminPage /></ProtectedRoute>
