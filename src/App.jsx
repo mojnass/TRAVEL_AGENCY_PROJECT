@@ -11,11 +11,11 @@ import { SearchPage } from './pages/SearchPage';
 import { AdminPage } from './pages/AdminPage';
 import { BundleViewPage } from './pages/BundleViewPage';
 import { ItineraryPage } from './pages/ItineraryPage';
-// Jad Al Btaddini — Hotels, Restaurants, Attractions, Spa
 import { HotelsPage } from './pages/HotelsPage';
 import { RestaurantsPage } from './pages/RestaurantsPage';
 import { AttractionsPage } from './pages/AttractionsPage';
 import { SpaPage } from './pages/SpaPage';
+import { FlightsPage } from './pages/FlightsPage';
 
 function App() {
   return (
@@ -29,6 +29,7 @@ function App() {
             <Route path="/search" element={<SearchPage />} />
 
             {/* Jad Al Btaddini — Hotels, Restaurants, Attractions, Spa */}
+            <Route path="/flights" element={<FlightsPage />} />
             <Route path="/hotels" element={<HotelsPage />} />
             <Route path="/restaurants" element={<RestaurantsPage />} />
             <Route path="/attractions" element={<AttractionsPage />} />

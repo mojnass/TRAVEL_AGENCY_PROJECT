@@ -17,8 +17,12 @@ export const SearchPage = () => {
   // Set search type from URL parameter on mount
   useEffect(() => {
     const typeFromUrl = searchParams.get('type');
+    console.log('🔍 SearchPage URL params:', searchParams.toString());
+    console.log('🎯 SearchPage type from URL:', typeFromUrl);
+    
     if (typeFromUrl) {
       setSearchType(typeFromUrl);
+      console.log('✅ SearchPage searchType set to:', typeFromUrl);
     }
   }, [searchParams]);
 

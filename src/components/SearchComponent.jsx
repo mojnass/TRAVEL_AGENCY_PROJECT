@@ -12,19 +12,49 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType })
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [guests, setGuests] = useState(2);
+  const [origin, setOrigin] = useState('');
+  const [destination, setDestination] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   // Update search type when initialSearchType changes
   useEffect(() => {
     if (initialSearchType) {
       setSearchType(initialSearchType);
+      console.log('🎯 SearchComponent searchType set to:', initialSearchType);
     }
   }, [initialSearchType]);
 
+  // Reset form fields when search type changes
+  useEffect(() => {
+    if (searchType === 'flights') {
+      setLocation('');
+      setCheckIn('');
+      setCheckOut('');
+    } else {
+      setOrigin('');
+      setDestination('');
+    }
+  }, [searchType]);
+
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!location) return;
-
+    
+    // Basic validation
+    if (!location && (searchType === 'hotels' || searchType === 'restaurants' || searchType === 'attractions' || searchType === 'spa')) {
+      alert('Please enter a location');
+      return;
+    }
+    
+    if (searchType === 'flights' && (!origin || !destination || !checkIn)) {
+      alert('Please enter origin, destination, and departure date');
+      return;
+    }
+    
+    if (searchType === 'hotels' && (!location || !checkIn)) {
+      alert('Please enter location and check-in date');
+      return;
+    }
+    
     setIsLoading(true);
     onSearchStart?.(); // Call onSearchStart if provided
     try {
@@ -35,8 +65,9 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType })
           results = await hotelService.searchHotels(location, checkIn, checkOut, guests);
           break;
         case 'flights':
-          // For flights, we'd need origin/destination, using location as destination
-          results = await flightService.searchFlights('NYC', location, checkIn, null, guests);
+          console.log('🔍 Flight search called with:', { origin, destination, checkIn, guests });
+          results = await flightService.searchFlights(origin, destination, checkIn, checkOut, guests);
+          console.log('✅ Flight search results:', results);
           break;
         case 'restaurants':
           results = await restaurantService.searchRestaurants(location, null, guests);
@@ -88,38 +119,91 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType })
           </select>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            <MapPin className="w-4 h-4 inline mr-1" />
-            Location
-          </label>
-          <input
-            type="text"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="City or destination"
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
-            required
-          />
-        </div>
+        {/* Location field for non-flight services */}
+        {searchType !== 'flights' && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              <MapPin className="w-4 h-4 inline mr-1" />
+              Location
+            </label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="City or destination"
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+              required
+            />
+          </div>
+        )}
 
-        {(searchType === 'hotels' || searchType === 'flights') && (
-          <div className="grid grid-cols-2 gap-4">
+        {/* Flight-specific fields */}
+        {searchType === 'flights' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Origin
+                </label>
+                <input
+                  type="text"
+                  value={origin}
+                  onChange={(e) => setOrigin(e.target.value)}
+                  placeholder="Departure city (e.g., NYC)"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Destination
+                </label>
+                <input
+                  type="text"
+                  value={destination}
+                  onChange={(e) => setDestination(e.target.value)}
+                  placeholder="Arrival city (e.g., DXB)"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
+            </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 <Calendar className="w-4 h-4 inline mr-1" />
-                Check-in / Departure
+                Departure Date
               </label>
               <input
                 type="date"
                 value={checkIn}
                 onChange={(e) => setCheckIn(e.target.value)}
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                required
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Hotel/Restaurant/Attraction/Spa fields */}
+        {(searchType === 'hotels' || searchType === 'restaurants' || searchType === 'attractions' || searchType === 'spa') && (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                Check-in / Start Date
+              </label>
+              <input
+                type="date"
+                value={checkIn}
+                onChange={(e) => setCheckIn(e.target.value)}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                required
               />
             </div>
             {searchType === 'hotels' && (
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <Calendar className="w-4 h-4 inline mr-1" />
                   Check-out
                 </label>
                 <input
@@ -133,37 +217,31 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType })
           </div>
         )}
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            <Users className="w-4 h-4 inline mr-1" />
-            Guests
-          </label>
-          <input
-            type="number"
-            value={guests}
-            onChange={(e) => setGuests(parseInt(e.target.value) || 1)}
-            min="1"
-            max="10"
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
-          />
-        </div>
+        {/* Guests field for applicable services */}
+        {(searchType === 'hotels' || searchType === 'restaurants' || searchType === 'attractions' || searchType === 'spa' || searchType === 'flights') && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              <Users className="w-4 h-4 inline mr-1" />
+              Number of Guests
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="10"
+              value={guests}
+              onChange={(e) => setGuests(parseInt(e.target.value))}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+              required
+            />
+          </div>
+        )}
 
         <button
           type="submit"
-          disabled={isLoading || !location}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2 rounded-lg transition flex items-center justify-center gap-2"
+          disabled={isLoading}
+          className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 font-medium transition"
         >
-          {isLoading ? (
-            <>
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Searching...
-            </>
-          ) : (
-            <>
-              <Search className="w-4 h-4" />
-              Search {searchType.charAt(0).toUpperCase() + searchType.slice(1)}
-            </>
-          )}
+          {isLoading ? 'Searching...' : 'Search'}
         </button>
       </form>
     </div>

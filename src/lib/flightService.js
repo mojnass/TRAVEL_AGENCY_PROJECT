@@ -1,50 +1,91 @@
 import { supabase } from './supabase';
+import { duffelService } from './duffel';
 
 export const flightService = {
-  // Search for flights with caching
+  // Search for flights using Duffel API with caching
   async searchFlights(origin, destination, departureDate, returnDate = null, passengerCount = 1, cabinClass = 'economy') {
-    // Check cache first
-    const { data: cachedData } = await supabase
-      .from('flight_search_cache')
-      .select('*')
-      .eq('origin', origin)
-      .eq('destination', destination)
-      .eq('departure_date', departureDate)
-      .eq('passenger_count', passengerCount)
-      .eq('cabin_class', cabinClass)
-      .gt('expires_at', new Date().toISOString())
-      .maybeSingle();
+    console.log('🛫 flightService.searchFlights called with:', { origin, destination, departureDate, returnDate, passengerCount, cabinClass });
     
-    if (cachedData) {
-      return cachedData.search_results;
+    try {
+      // Check cache first
+      const { data: cachedData } = await supabase
+        .from('flight_search_cache')
+        .select('*')
+        .eq('origin', origin)
+        .eq('destination', destination)
+        .eq('departure_date', departureDate)
+        .eq('passenger_count', passengerCount)
+        .eq('cabin_class', cabinClass)
+        .gt('expires_at', new Date().toISOString())
+        .maybeSingle();
+      
+      if (cachedData) {
+        console.log('Using cached flight results');
+        return cachedData.search_results;
+      }
+      
+      // Use Duffel API for real flight search
+      console.log('Searching flights with Duffel API...');
+      const flightResults = await duffelService.searchFlights(origin, destination, departureDate, returnDate, passengerCount);
+      
+      // Cache the results for 1 hour
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+      await supabase
+        .from('flight_search_cache')
+        .upsert({
+          origin,
+          destination,
+          departure_date: departureDate,
+          return_date: returnDate,
+          passenger_count: passengerCount,
+          cabin_class: cabinClass,
+          search_results: flightResults,
+          cached_at: new Date().toISOString(),
+          expires_at: expiresAt
+        });
+      
+      return flightResults;
+    } catch (error) {
+      console.error('Flight search error:', error);
+      // Fallback to mock data if Duffel fails
+      return this.getMockFlights(origin, destination);
     }
-    
-    // If no cache, search flight offers
-    const { data: flightData, error } = await supabase
-      .from('flight_offers')
-      .select('*')
-      .eq('origin', origin)
-      .eq('destination', destination)
-      .eq('cabin_class', cabinClass)
-      .gte('availability', passengerCount);
-    
-    if (error) throw error;
-    
-    // Cache the results
-    const cacheData = {
-      origin,
-      destination,
-      departure_date: departureDate,
-      return_date: returnDate,
-      passenger_count: passengerCount,
-      cabin_class: cabinClass,
-      search_results: flightData || [],
-      expires_at: new Date(Date.now() + 3600000).toISOString() // 1 hour cache
-    };
-    
-    await supabase.from('flight_search_cache').insert(cacheData);
-    
-    return flightData;
+  },
+
+  // Get mock flights as fallback
+  async getMockFlights(origin, destination) {
+    return [
+      {
+        offer_id: 'mock_1',
+        airline_code: 'AA',
+        flight_number: 'AA123',
+        origin: origin,
+        destination: destination,
+        departure_time: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        arrival_time: new Date(Date.now() + 24 * 60 * 60 * 1000 + 5 * 60 * 60 * 1000).toISOString(),
+        duration_minutes: 300,
+        stops: 0,
+        cabin_class: 'economy',
+        price: 450.00,
+        currency: 'USD',
+        availability: 10,
+      },
+      {
+        offer_id: 'mock_2',
+        airline_code: 'UA',
+        flight_number: 'UA456',
+        origin: origin,
+        destination: destination,
+        departure_time: new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString(),
+        arrival_time: new Date(Date.now() + 25 * 60 * 60 * 1000 + 4.5 * 60 * 60 * 1000).toISOString(),
+        duration_minutes: 270,
+        stops: 1,
+        cabin_class: 'economy',
+        price: 380.00,
+        currency: 'USD',
+        availability: 8,
+      }
+    ];
   },
 
   // Get flight offers by route
