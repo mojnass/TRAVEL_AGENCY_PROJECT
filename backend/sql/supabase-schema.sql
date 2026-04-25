@@ -37,6 +37,17 @@ create table if not exists flight_search_cache (
   expires_at timestamptz
 );
 
+alter table flight_search_cache
+  alter column origin drop not null,
+  alter column destination drop not null,
+  alter column departure_date drop not null,
+  alter column return_date drop not null,
+  alter column passenger_count drop not null,
+  alter column cabin_class drop not null,
+  alter column search_results drop not null,
+  alter column cached_at drop not null,
+  alter column expires_at drop not null;
+
 create table if not exists hotels (
   hotel_id text primary key default gen_random_uuid()::text,
   name text,

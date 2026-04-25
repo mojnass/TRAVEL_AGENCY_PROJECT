@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Map;
+import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -25,15 +26,17 @@ class AuthControllerTests {
 
   @Test
   void registerReturnsTokenAndUser() throws Exception {
+    String email = "student-" + UUID.randomUUID() + "@example.com";
+
     mockMvc.perform(post("/api/auth/register")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(Map.of(
-                "email", "student@example.com",
+                "email", email,
                 "password", "password123",
                 "fullName", "Student User"
             ))))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.token").isNotEmpty())
-        .andExpect(jsonPath("$.user.email").value("student@example.com"));
+        .andExpect(jsonPath("$.user.email").value(email));
   }
 }

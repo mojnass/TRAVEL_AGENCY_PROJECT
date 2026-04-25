@@ -38,6 +38,7 @@ public class CatalogStore {
   private final String dbUrl;
   private final String dbUser;
   private final String dbPassword;
+  private final Set<String> compatibilityChecked = ConcurrentHashMap.newKeySet();
 
   public CatalogStore(
       ObjectMapper objectMapper,
@@ -130,6 +131,7 @@ public class CatalogStore {
     if (!tableExists(table)) {
       throw new IllegalStateException("Supabase table does not exist: " + table);
     }
+    ensureCompatibility(table);
     return true;
   }
 
@@ -345,6 +347,33 @@ public class CatalogStore {
       return resultSet.next();
     } catch (SQLException exception) {
       throw new IllegalStateException("Could not inspect table " + table, exception);
+    }
+  }
+
+  private void ensureCompatibility(String table) {
+    if (!compatibilityChecked.add(table)) {
+      return;
+    }
+    if (!"flight_search_cache".equals(table)) {
+      return;
+    }
+    String sql = """
+        ALTER TABLE flight_search_cache
+          ALTER COLUMN origin DROP NOT NULL,
+          ALTER COLUMN destination DROP NOT NULL,
+          ALTER COLUMN departure_date DROP NOT NULL,
+          ALTER COLUMN return_date DROP NOT NULL,
+          ALTER COLUMN passenger_count DROP NOT NULL,
+          ALTER COLUMN cabin_class DROP NOT NULL,
+          ALTER COLUMN search_results DROP NOT NULL,
+          ALTER COLUMN cached_at DROP NOT NULL,
+          ALTER COLUMN expires_at DROP NOT NULL
+        """;
+    try (Connection connection = connection();
+         PreparedStatement statement = connection.prepareStatement(sql)) {
+      statement.executeUpdate();
+    } catch (SQLException exception) {
+      throw new IllegalStateException("Could not update flight_search_cache compatibility", exception);
     }
   }
 
