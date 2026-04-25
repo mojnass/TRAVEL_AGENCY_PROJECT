@@ -6,7 +6,13 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': 'http://localhost:8080',
+   
+      '/duffel': {
+        target: 'https://api.duffel.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/duffel/, ''),
+      },
     },
   },
 })
