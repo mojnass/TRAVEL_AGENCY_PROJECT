@@ -21,21 +21,14 @@ export const AuthProvider = ({ children }) => {
 
     initAuth();
 
-    const { data: authListener } = authService.onAuthStateChange((event, session) => {
-      setUser(session?.user || null);
-    });
-
-    return () => {
-      authListener?.subscription.unsubscribe();
-    };
+    return undefined;
   }, []);
 
   const login = async (email, password) => {
     setIsLoading(true);
     try {
-      await authService.login(email, password);
-      const currentUser = await authService.getCurrentUser();
-      setUser(currentUser);
+      const session = await authService.login(email, password);
+      setUser(session.user);
     } finally {
       setIsLoading(false);
     }

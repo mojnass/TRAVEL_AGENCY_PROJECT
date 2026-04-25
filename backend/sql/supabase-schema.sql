@@ -1,5 +1,15 @@
 create extension if not exists "pgcrypto";
 
+create table if not exists app_users (
+  user_id uuid primary key default gen_random_uuid(),
+  email text unique not null,
+  password_hash text not null,
+  full_name text not null,
+  roles text not null default 'USER',
+  created_at timestamptz default now(),
+  updated_at timestamptz
+);
+
 create table if not exists flight_offers (
   offer_id text primary key default gen_random_uuid()::text,
   origin text,

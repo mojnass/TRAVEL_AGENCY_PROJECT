@@ -1,6 +1,7 @@
 // 🧪 SUPABASE CONNECTION TEST SCRIPT
 // Run this in your browser console to verify all connections
 
+/* eslint-disable no-unused-vars */
 import { supabase } from './src/lib/supabase.js';
 import { bundleService } from './src/lib/bundleService.js';
 import { paymentService } from './src/lib/paymentService.js';
