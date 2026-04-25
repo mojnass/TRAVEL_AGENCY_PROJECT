@@ -16,6 +16,8 @@ import { RestaurantsPage } from './pages/RestaurantsPage';
 import { AttractionsPage } from './pages/AttractionsPage';
 import { SpaPage } from './pages/SpaPage';
 import { FlightsPage } from './pages/FlightsPage';
+import { FlightBookingModal } from './components/FlightBookingModal';
+import { BookingConfirmationPage } from './pages/BookingConfirmationPage';
 
 function App() {
   return (
@@ -48,6 +50,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/booking-confirmation/:bookingId"
+              element={
+                <ProtectedRoute>
+                  <BookingConfirmationPage />
                 </ProtectedRoute>
               }
             />

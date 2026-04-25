@@ -3,18 +3,62 @@ import { supabase } from './supabase';
 export const bookingService = {
   // Create new booking
   async createBooking(bookingData) {
-    const { data, error } = await supabase
-      .from('bookings')
-      .insert(bookingData)
-      .select()
-      .single();
-    
-    if (error) throw error;
-    
-    // Add status history
-    await this.addBookingStatusHistory(data.booking_id, 'pending', data.user_id);
-    
-    return data;
+    try {
+      // Generate a proper UUID for the booking_id using crypto.randomUUID
+      const bookingId = crypto.randomUUID();
+      
+      // Start a transaction by creating the main booking first
+      const { data: booking, error: bookingError } = await supabase
+        .from('bookings')
+        .insert({
+          booking_id: bookingId, // Use generated UUID instead of service_id
+          user_id: bookingData.user_id,
+          booking_type: bookingData.booking_type,
+          service_id: bookingData.service_id, // Keep Duffel offer ID here
+          total_price: bookingData.total_price,
+          currency: bookingData.currency,
+          start_date: bookingData.travel_date || bookingData.start_date,
+          status: bookingData.status || 'pending',
+          payment_method: bookingData.payment_method,
+          flight_details: bookingData.flight_details || null,
+          additional_services: bookingData.additional_services || null,
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+      
+      if (bookingError) throw bookingError;
+
+      // Add passengers if this is a flight booking
+      if (bookingData.booking_type === 'flight' && bookingData.passengers) {
+        const passengerData = bookingData.passengers.map((passenger, index) => ({
+          booking_id: bookingId, // Use the generated UUID
+          passenger_index: index + 1,
+          first_name: passenger.first_name,
+          last_name: passenger.last_name,
+          email: passenger.email,
+          phone: passenger.phone,
+          date_of_birth: passenger.date_of_birth,
+          passport_number: passenger.passport_number,
+          nationality: passenger.nationality,
+          is_primary: index === 0
+        }));
+
+        const { error: passengerError } = await supabase
+          .from('booking_passengers')
+          .insert(passengerData);
+        
+        if (passengerError) throw passengerError;
+      }
+
+      // Add status history
+      await this.addBookingStatusHistory(bookingId, 'pending', bookingData.user_id);
+      
+      return booking;
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      throw error;
+    }
   },
 
   // Get user's bookings
@@ -56,7 +100,6 @@ export const bookingService = {
       .select(`
         *,
         booking_passengers (*),
-        booking_extras (*),
         booking_status_history (*)
       `)
       .eq('booking_id', bookingId)
@@ -64,6 +107,11 @@ export const bookingService = {
     
     if (error) throw error;
     return data;
+  },
+
+  // Get booking by ID (alias for getBookingDetails)
+  async getBookingById(bookingId) {
+    return this.getBookingDetails(bookingId);
   },
 
   // Update booking status

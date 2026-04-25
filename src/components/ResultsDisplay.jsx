@@ -4,12 +4,25 @@ import { bookingService } from '../lib/bookingService';
 import { notificationService } from '../lib/notificationService';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { FlightBookingModal } from './FlightBookingModal';
 
 export const ResultsDisplay = ({ results, searchType }) => {
   const { user } = useAuth();
   const { addToCart } = useCart();
   const [bookingStates, setBookingStates] = useState({});
   const [errors, setErrors] = useState({});
+  const [selectedFlight, setSelectedFlight] = useState(null);
+  const [isFlightModalOpen, setIsFlightModalOpen] = useState(false);
+
+  const handleFlightBooking = (flight) => {
+    setSelectedFlight(flight);
+    setIsFlightModalOpen(true);
+  };
+
+  const handleFlightBookingSuccess = (booking) => {
+    // Show success message or navigate to confirmation
+    alert(`Flight booked successfully! Booking ID: ${booking.booking_id}`);
+  };
 
   const handleBooking = async (result, type) => {
     if (!user) {
@@ -162,20 +175,11 @@ export const ResultsDisplay = ({ results, searchType }) => {
                 return (
                   <div className="flex flex-col gap-2">
                     <button
-                      onClick={() => handleBooking(result, 'flights')}
-                      disabled={state === 'loading'}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm rounded-lg transition flex items-center gap-2"
+                      onClick={() => handleFlightBooking(result)}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition flex items-center gap-2"
                     >
-                      {state === 'loading' ? (
-                        <>
-                          <Loader className="w-3 h-3 animate-spin" />
-                          Booking...
-                        </>
-                      ) : state === 'success' ? (
-                        '✓ Booked!'
-                      ) : (
-                        'Book Flight'
-                      )}
+                      <Plane className="w-3 h-3" />
+                      Book Flight
                     </button>
                     {error && (
                       <div className="flex items-center gap-1 text-red-600 text-xs">
@@ -329,6 +333,14 @@ export const ResultsDisplay = ({ results, searchType }) => {
           {renderResult(result)}
         </div>
       ))}
+      
+      {/* Flight Booking Modal */}
+      <FlightBookingModal
+        flight={selectedFlight}
+        isOpen={isFlightModalOpen}
+        onClose={() => setIsFlightModalOpen(false)}
+        onBookingSuccess={handleFlightBookingSuccess}
+      />
     </div>
   );
 };
