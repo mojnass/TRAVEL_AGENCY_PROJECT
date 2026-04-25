@@ -24,6 +24,13 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType })
     }
   }, [initialSearchType]);
 
+  // Log current search type for debugging
+  useEffect(() => {
+    console.log('🔍 SearchComponent current searchType:', searchType);
+    console.log('🔍 Should show flight fields:', searchType === 'flights');
+    console.log('🔍 InitialSearchType received:', initialSearchType);
+  }, [searchType, initialSearchType]);
+
   // Reset form fields when search type changes
   useEffect(() => {
     if (searchType === 'flights') {

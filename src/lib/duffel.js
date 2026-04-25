@@ -1,6 +1,6 @@
 // This function uses your Vite proxy (/duffel) to talk to Duffel
-export const searchFlights = async (origin, destination, departureDate, returnDate = null, passengers = 1) => {
-  console.log('✈️ duffelService.searchFlights called with:', { origin, destination, departureDate, returnDate, passengers });
+export const searchFlights = async (origin, destination, departureDate) => {
+  console.log('✈️ duffelService.searchFlights called with:', { origin, destination, departureDate });
   
   const token = import.meta.env.VITE_DUFFEL_ACCESS_TOKEN;
   console.log('🔑 Duffel token found:', !!token);
@@ -10,28 +10,16 @@ export const searchFlights = async (origin, destination, departureDate, returnDa
     return [];
   }
 
-  // Build the slices array
-  const slices = [
-    {
-      origin: origin, // e.g., 'LHR'
-      destination: destination, // e.g., 'DXB'
-      departure_date: departureDate, // e.g., '2026-06-15'
-    },
-  ];
-
-  // Add return flight if provided
-  if (returnDate) {
-    slices.push({
-      origin: destination,
-      destination: origin,
-      departure_date: returnDate,
-    });
-  }
-
   const body = {
     data: {
-      slices: slices,
-      passengers: Array(passengers).fill({ type: 'adult' }),
+      slices: [
+        {
+          origin: origin, // e.g., 'LHR'
+          destination: destination, // e.g., 'DXB'
+          departure_date: departureDate, // e.g., '2026-06-15'
+        },
+      ],
+      passengers: [{ type: 'adult' }],
       cabin_class: 'economy',
     },
   };
