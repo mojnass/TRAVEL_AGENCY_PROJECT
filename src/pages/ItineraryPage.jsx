@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  Package, Download, Share2, Calendar, MapPin, DollarSign,
-  Eye, Trash2, Search, Filter, FileText, ExternalLink
+  Package, Download, Share2, Calendar, MapPin,
+  Eye, Search, Filter, FileText, ExternalLink
 } from 'lucide-react';
 import { itineraryService } from '../lib/itineraryService';
-import { bundleService } from '../lib/bundleService';
 import { useAuth } from '../context/AuthContext';
 
 export const ItineraryPage = () => {
@@ -16,27 +15,27 @@ export const ItineraryPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
-  useEffect(() => {
-    loadItineraries();
-  }, [user]);
-
-  const loadItineraries = async () => {
+  const loadItineraries = useCallback(async () => {
     try {
       setIsLoading(true);
       const data = await itineraryService.getUserItineraries(user.id);
       setItineraries(data);
-    } catch (err) {
+    } catch {
       setError('Failed to load itineraries');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user.id]);
+
+  useEffect(() => {
+    loadItineraries();
+  }, [loadItineraries]);
 
   const handleDownloadPDF = async (userBundleId) => {
     try {
       const pdfUrl = await itineraryService.downloadPDF(userBundleId);
       window.open(pdfUrl, '_blank');
-    } catch (err) {
+    } catch {
       alert('Failed to download PDF');
     }
   };

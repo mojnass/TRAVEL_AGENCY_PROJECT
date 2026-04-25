@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
-  Package, MapPin, Calendar, DollarSign, Users, 
-  Download, Share2, Clock, CheckCircle, AlertCircle,
+  Package, MapPin, Users,
+  Download, Share2, CheckCircle, AlertCircle,
   Plane, Hotel, Utensils, Ticket, Sparkles
 } from 'lucide-react';
 import { bundleService } from '../lib/bundleService';
@@ -19,11 +19,7 @@ export const BundleViewPage = () => {
   const [showGuestCheckout, setShowGuestCheckout] = useState(false);
   const [guestEmail, setGuestEmail] = useState('');
 
-  useEffect(() => {
-    loadBundle();
-  }, [shareableLink]);
-
-  const loadBundle = async () => {
+  const loadBundle = useCallback(async () => {
     try {
       setIsLoading(true);
       const bundleData = await bundleService.getBundleByShareLink(shareableLink);
@@ -33,12 +29,16 @@ export const BundleViewPage = () => {
       if (bundleData.itinerary_pdf_url) {
         setPdfUrl(bundleData.itinerary_pdf_url);
       }
-    } catch (err) {
+    } catch {
       setError('Bundle not found or has been removed');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [shareableLink]);
+
+  useEffect(() => {
+    loadBundle();
+  }, [loadBundle]);
 
   const handleDownloadPDF = async () => {
     if (pdfUrl) {
@@ -51,7 +51,7 @@ export const BundleViewPage = () => {
       const itinerary = await itineraryService.generateItineraryPDF(bundle.user_bundle_id);
       setPdfUrl(itinerary.pdfUrl);
       window.open(itinerary.pdfUrl, '_blank');
-    } catch (err) {
+    } catch {
       alert('Failed to generate PDF');
     } finally {
       setIsLoading(false);
@@ -79,7 +79,7 @@ export const BundleViewPage = () => {
       alert('Bundle details have been sent to your email!');
       setShowGuestCheckout(false);
       setGuestEmail('');
-    } catch (err) {
+    } catch {
       alert('Failed to send bundle details');
     } finally {
       setIsLoading(false);

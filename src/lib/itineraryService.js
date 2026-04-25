@@ -24,7 +24,7 @@ export const itineraryService = {
       if (bundleError) throw bundleError;
 
       // Generate PDF content (mock implementation - will use jsPDF later)
-      const pdfContent = await this.createPDFContent(bundle);
+      await this.createPDFContent(bundle);
       
       // For now, return a mock PDF URL
       const pdfUrl = `https://supabase-storage-url/itineraries/${userBundleId}.pdf`;
@@ -212,7 +212,7 @@ export const itineraryService = {
     };
     
     // Mock QR code generation - would use qrcode library
-    return `data:image/png;base64,mock-qr-code-for-${userBundleId}`;
+    return `data:image/png;base64,mock-qr-code-for-${encodeURIComponent(JSON.stringify(qrData))}`;
   },
 
   // Get all user itineraries

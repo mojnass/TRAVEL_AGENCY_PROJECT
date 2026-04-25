@@ -9,6 +9,10 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+backend/target
+backend/*.log
+.m2
+.tools
 *.local
 
 .vscode/*
