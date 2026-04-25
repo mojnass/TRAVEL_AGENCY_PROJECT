@@ -11,6 +11,11 @@ import { SearchPage } from './pages/SearchPage';
 import { AdminPage } from './pages/AdminPage';
 import { BundleViewPage } from './pages/BundleViewPage';
 import { ItineraryPage } from './pages/ItineraryPage';
+// Jad Al Btaddini — Hotels, Restaurants, Attractions, Spa
+import { HotelsPage } from './pages/HotelsPage';
+import { RestaurantsPage } from './pages/RestaurantsPage';
+import { AttractionsPage } from './pages/AttractionsPage';
+import { SpaPage } from './pages/SpaPage';
 
 function App() {
   return (
@@ -18,25 +23,33 @@ function App() {
       <AuthProvider>
         <CartProvider>
           <Routes>
-            <Route path="/"        element={<HomePage />} />
-            <Route path="/login"   element={<LoginPage />} />
+            <Route path="/" element={<HomePage />} />
+            <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
-            <Route path="/search"  element={<SearchPage />} />
-            <Route path="/bundle/:shareableLink" element={<BundleViewPage />} />
+            <Route path="/search" element={<SearchPage />} />
 
-            <Route path="/dashboard" element={
-              <ProtectedRoute><DashboardPage /></ProtectedRoute>
-            } />
-            <Route path="/dashboard/profile" element={
-              <ProtectedRoute><ProfilePage /></ProtectedRoute>
-            } />
-            <Route path="/dashboard/itineraries" element={
-              <ProtectedRoute><ItineraryPage /></ProtectedRoute>
-            } />
-            <Route path="/admin" element={
-              <ProtectedRoute><AdminPage /></ProtectedRoute>
-            } />
+            {/* Jad Al Btaddini — Hotels, Restaurants, Attractions, Spa */}
+            <Route path="/hotels" element={<HotelsPage />} />
+            <Route path="/restaurants" element={<RestaurantsPage />} />
+            <Route path="/attractions" element={<AttractionsPage />} />
+            <Route path="/spa" element={<SpaPage />} />
 
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </CartProvider>
