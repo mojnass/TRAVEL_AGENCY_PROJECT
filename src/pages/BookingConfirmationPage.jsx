@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CheckCircle, Plane, Calendar, Users, MapPin, Clock, ArrowLeft, Download, Mail } from 'lucide-react';
+import { CheckCircle, Plane, Users, MapPin, Clock, ArrowLeft, Download, Mail } from 'lucide-react';
 import { bookingService } from '../lib/bookingService';
-import { useAuth } from '../context/AuthContext';
 
 export const BookingConfirmationPage = () => {
   const { bookingId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
 

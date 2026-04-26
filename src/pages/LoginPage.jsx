@@ -6,9 +6,12 @@ import { Mail, Lock, AlertCircle, Loader } from 'lucide-react';
 export const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
+  const [otpHint, setOtpHint] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, verifyTwoFactor } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -17,10 +20,29 @@ export const LoginPage = () => {
     setIsLoading(true);
 
     try {
-      await login(email, password);
+      const session = await login(email, password);
+      if (session?.requiresTwoFactor) {
+        setRequiresTwoFactor(true);
+        setOtpHint(session.otpDeliveryHint || '');
+        return;
+      }
       navigate('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOtpSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+    try {
+      await verifyTwoFactor(email, otp);
+      navigate('/admin');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'OTP verification failed');
     } finally {
       setIsLoading(false);
     }
@@ -42,7 +64,12 @@ export const LoginPage = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={requiresTwoFactor ? handleOtpSubmit : handleSubmit} className="space-y-4">
+            {requiresTwoFactor && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
+                Admin 2FA is required. Use OTP {otpHint || '123456'} for this test environment.
+              </div>
+            )}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
                 Email
@@ -54,6 +81,7 @@ export const LoginPage = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  disabled={requiresTwoFactor}
                   placeholder="you@example.com"
                   className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   required
@@ -72,12 +100,29 @@ export const LoginPage = () => {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  disabled={requiresTwoFactor}
                   placeholder="••••••••"
                   className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                   required
                 />
               </div>
             </div>
+
+            {requiresTwoFactor && (
+              <div>
+                <label htmlFor="otp" className="block text-sm font-medium text-slate-700 mb-2">
+                  One-time password
+                </label>
+                <input
+                  id="otp"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  placeholder="123456"
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  required
+                />
+              </div>
+            )}
 
             <button
               type="submit"
@@ -87,10 +132,10 @@ export const LoginPage = () => {
               {isLoading ? (
                 <>
                   <Loader className="w-4 h-4 animate-spin" />
-                  Logging in...
+                  {requiresTwoFactor ? 'Verifying...' : 'Logging in...'}
                 </>
               ) : (
-                'Log In'
+                requiresTwoFactor ? 'Verify 2FA' : 'Log In'
               )}
             </button>
           </form>

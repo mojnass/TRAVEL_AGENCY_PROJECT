@@ -169,7 +169,7 @@ export const DashboardPage = () => {
           <div>
             <h1 className="text-3xl font-bold text-slate-900">My Dashboard</h1>
             <p className="text-slate-500 mt-1">
-              Welcome back, {user?.user_metadata?.full_name || user?.email?.split('@')[0]}
+              Welcome back, {user?.fullName || user?.email?.split('@')[0]}
             </p>
           </div>
           <button

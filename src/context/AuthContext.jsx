@@ -28,7 +28,21 @@ export const AuthProvider = ({ children }) => {
     setIsLoading(true);
     try {
       const session = await authService.login(email, password);
+      if (session.token) {
+        setUser(session.user);
+      }
+      return session;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const verifyTwoFactor = async (email, otp) => {
+    setIsLoading(true);
+    try {
+      const session = await authService.verifyTwoFactor(email, otp);
       setUser(session.user);
+      return session;
     } finally {
       setIsLoading(false);
     }
@@ -37,7 +51,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (email, password, fullName) => {
     setIsLoading(true);
     try {
-      await authService.register(email, password, fullName);
+      return await authService.register(email, password, fullName);
     } finally {
       setIsLoading(false);
     }
@@ -54,11 +68,21 @@ export const AuthProvider = ({ children }) => {
   };
 
   const resetPassword = async (email) => {
-    await authService.resetPassword(email);
+    return authService.resetPassword(email);
+  };
+
+  const completePasswordReset = async (token, password) => {
+    return authService.completePasswordReset(token, password);
+  };
+
+  const updateProfile = async (profile) => {
+    const updated = await authService.updateProfile(profile);
+    setUser(updated);
+    return updated;
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout, resetPassword }}>
+    <AuthContext.Provider value={{ user, isLoading, login, verifyTwoFactor, register, logout, resetPassword, completePasswordReset, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

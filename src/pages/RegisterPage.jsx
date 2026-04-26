@@ -9,6 +9,7 @@ export const RegisterPage = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [verificationLink, setVerificationLink] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -43,8 +44,11 @@ export const RegisterPage = () => {
     setIsLoading(true);
 
     try {
-      await register(email, password, fullName);
-      navigate('/login', { state: { message: 'Registration successful! Please log in.' } });
+      const result = await register(email, password, fullName);
+      setVerificationLink(result.verificationLink || '');
+      if (!result.verificationLink) {
+        navigate('/login', { state: { message: 'Registration successful! Please log in.' } });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
@@ -65,6 +69,15 @@ export const RegisterPage = () => {
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-red-700">{error}</p>
+            </div>
+          )}
+
+          {verificationLink && (
+            <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+              Verification email queued. Test activation link:{' '}
+              <a className="font-medium underline" href={verificationLink}>
+                {verificationLink}
+              </a>
             </div>
           )}
 

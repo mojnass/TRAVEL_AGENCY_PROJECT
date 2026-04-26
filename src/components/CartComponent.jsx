@@ -27,6 +27,63 @@ export const CartComponent = () => {
   const [pdfUrl, setPdfUrl] = useState('');
   const [showPdfDownload, setShowPdfDownload] = useState(false);
 
+  const getServiceId = (item) => (
+    item.details.hotel_id ||
+    item.details.offer_id ||
+    item.details.restaurant_id ||
+    item.details.attraction_id ||
+    item.details.spa_id ||
+    item.details.bundle_id ||
+    item.details.user_bundle_id ||
+    item.id
+  );
+
+  const handleCheckout = async () => {
+    if (!user) {
+      alert('Please log in to checkout');
+      return;
+    }
+
+    if (cartItems.length === 0) {
+      alert('Your cart is empty');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const bookings = await Promise.all(cartItems.map((item) => bookingService.createBooking({
+        booking_type: item.type,
+        service_id: getServiceId(item),
+        total_price: item.price * item.quantity,
+        currency: 'USD',
+        start_date: new Date().toISOString().split('T')[0],
+        status: 'pending',
+      })));
+
+      const payment = await paymentService.createPayment({
+        booking_id: bookings[0]?.booking_id,
+        amount: getTotalPrice(),
+        currency: 'USD',
+        payment_method: 'credit_card',
+        status: 'pending',
+      });
+
+      await paymentService.completePayment(payment.payment_id);
+      await Promise.all(bookings.map((booking) =>
+        notificationService.sendBookingConfirmation(user.id, booking.booking_id)
+      ));
+
+      clearCart();
+      alert('Checkout successful. Your bookings are now in your dashboard.');
+    } catch (error) {
+      console.error('Checkout failed:', error);
+      alert('Checkout failed: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleBundleCheckout = async () => {
     if (!user) {
       alert('Please log in to checkout');
@@ -52,7 +109,7 @@ export const CartComponent = () => {
         destination: bundleDestination,
         items: cartItems.map(item => ({
           type: item.type,
-          service_id: item.details.hotel_id || item.details.offer_id || item.details.restaurant_id || item.details.attraction_id,
+          service_id: getServiceId(item),
           name: item.name,
           price: item.price,
           quantity: item.quantity
@@ -69,7 +126,7 @@ export const CartComponent = () => {
         const bookingData = {
           user_id: user.id,
           booking_type: item.type,
-          service_id: item.details.hotel_id || item.details.offer_id || item.details.restaurant_id || item.details.attraction_id,
+          service_id: getServiceId(item),
           total_price: item.price * item.quantity,
           currency: 'USD',
           start_date: new Date().toISOString().split('T')[0],
@@ -100,9 +157,7 @@ export const CartComponent = () => {
       // Create bundle checkout record
       await itineraryService.createBundleCheckout(bundle.user_bundle_id, payment.payment_id);
 
-      // Process payment (mock)
-      await paymentService.processPayment(paymentData);
-      await paymentService.updatePaymentStatus(payment.payment_id, 'completed');
+      await paymentService.completePayment(payment.payment_id);
       
       // Generate PDF itinerary
       const itinerary = await itineraryService.generateItineraryPDF(bundle.user_bundle_id);

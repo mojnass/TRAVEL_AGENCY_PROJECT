@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Calendar, Users, CreditCard, Shield, Sparkles, Clock, MapPin } from 'lucide-react';
+import { X, Shield, Sparkles, Clock, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { bookingService } from '../lib/bookingService';
 import { useAuth } from '../context/AuthContext';

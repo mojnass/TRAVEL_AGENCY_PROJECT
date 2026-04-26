@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Calendar, Users, CreditCard, Shield, Hotel, Clock, MapPin, Wifi, Car, Coffee } from 'lucide-react';
+import { X, Shield, Clock, Car, Coffee } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { bookingService } from '../lib/bookingService';
 import { useAuth } from '../context/AuthContext';

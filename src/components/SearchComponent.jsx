@@ -1,62 +1,58 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Search, MapPin, Calendar, Users } from 'lucide-react';
 import { hotelService } from '../lib/hotelService';
 import { flightService } from '../lib/flightService';
 import { restaurantService } from '../lib/restaurantService';
 import { attractionService } from '../lib/attractionService';
 import { spaService } from '../lib/spaService';
+import { bundleService } from '../lib/bundleService';
 import { airports, cities } from '../data/airports.js';
 
 export const SearchComponent = ({ onResults, onSearchStart, initialSearchType }) => {
   const [searchType, setSearchType] = useState(initialSearchType || 'hotels');
+  const [origin, setOrigin] = useState('BEY');
+  const [destination, setDestination] = useState('');
   const [location, setLocation] = useState('');
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [guests, setGuests] = useState(2);
-  const [origin, setOrigin] = useState('');
-  const [destination, setDestination] = useState('');
+  const [tripType, setTripType] = useState('one-way');
+  const [cabinClass, setCabinClass] = useState('economy');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Update search type when initialSearchType changes
   useEffect(() => {
     if (initialSearchType) {
       setSearchType(initialSearchType);
     }
   }, [initialSearchType]);
 
-  // Reset form fields when search type changes
   useEffect(() => {
+    setCheckIn('');
+    setCheckOut('');
     if (searchType === 'flights') {
       setLocation('');
-      setCheckIn('');
-      setCheckOut('');
+      setOrigin((current) => current || 'BEY');
     } else {
-      setOrigin('');
       setDestination('');
     }
   }, [searchType]);
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    
-    // Basic validation
-    if (!location && (searchType === 'hotels' || searchType === 'restaurants' || searchType === 'attractions' || searchType === 'spa')) {
-      alert('Please enter a location');
-      return;
-    }
-    
+  const handleSearch = async (event) => {
+    event.preventDefault();
+
     if (searchType === 'flights' && (!origin || !destination || !checkIn)) {
       alert('Please enter origin, destination, and departure date');
       return;
     }
-    
-    if (searchType === 'hotels' && (!location || !checkIn)) {
-      alert('Please enter location and check-in date');
+
+    if (searchType !== 'flights' && !location) {
+      alert('Please enter a location');
       return;
     }
-    
+
     setIsLoading(true);
-    onSearchStart?.(); // Call onSearchStart if provided
+    onSearchStart?.();
+
     try {
       let results = [];
 
@@ -65,7 +61,14 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType })
           results = await hotelService.searchHotels(location, checkIn, checkOut, guests);
           break;
         case 'flights':
-          results = await flightService.searchFlights(origin, destination, checkIn, checkOut, guests);
+          results = await flightService.searchFlights(
+            origin,
+            destination,
+            checkIn,
+            tripType === 'round-trip' ? checkOut : null,
+            guests,
+            cabinClass
+          );
           break;
         case 'restaurants':
           results = await restaurantService.searchRestaurants(location, null, guests);
@@ -77,9 +80,7 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType })
           results = await spaService.searchSpaVenues(location);
           break;
         case 'bundles':
-          // For bundles, show a message to build bundles
-          results = [];
-          alert('Build your own bundle by adding items to your cart from different services!');
+          results = await bundleService.getPublishedBundles({ destination: location });
           break;
         default:
           results = [];
@@ -88,29 +89,15 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType })
       onResults(results, searchType);
     } catch (error) {
       console.error('Search failed:', error);
-      
-      // Better error messages based on search type
-      let errorMessage = 'Search failed. Please try again.';
-      
-      if (searchType === 'flights') {
-        if (error.message.includes('No flights found') || results.length === 0) {
-          errorMessage = 'No flights found for this route and date. Try different airports or dates.';
-        } else if (error.message.includes('origin') || error.message.includes('destination')) {
-          errorMessage = 'Invalid airport selection. Please check your origin and destination airports.';
-        } else if (error.message.includes('date')) {
-          errorMessage = 'Invalid date. Please select a future date for departure.';
-        }
-      } else if (searchType === 'hotels') {
-        errorMessage = 'No hotels found in this city for the selected dates. Try different dates or a nearby city.';
-      } else if (searchType === 'restaurants') {
-        errorMessage = 'No restaurants found in this city. Try a different city or check back later.';
-      } else if (searchType === 'attractions') {
-        errorMessage = 'No attractions found in this city. Try a different city or expand your search.';
-      } else if (searchType === 'spa') {
-        errorMessage = 'No spa services found in this city. Try a different city or check back later.';
-      }
-      
-      alert(errorMessage);
+      const messages = {
+        flights: 'No flights found for this route and date. Try different airports or dates.',
+        hotels: 'No hotels found in this city for the selected dates. Try different dates or a nearby city.',
+        restaurants: 'No restaurants found in this city. Try a different city or check back later.',
+        attractions: 'No attractions found in this city. Try a different city or expand your search.',
+        spa: 'No spa services found in this city. Try a different city or check back later.',
+        bundles: 'No bundles found for this destination. Try another city.',
+      };
+      alert(messages[searchType] || 'Search failed. Please try again.');
       onResults([], searchType);
     } finally {
       setIsLoading(false);
@@ -120,7 +107,7 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType })
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
       <h3 className="text-lg font-semibold mb-4">Search Travel Services</h3>
-      
+
       <form onSubmit={handleSearch} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -128,7 +115,7 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType })
           </label>
           <select
             value={searchType}
-            onChange={(e) => setSearchType(e.target.value)}
+            onChange={(event) => setSearchType(event.target.value)}
             className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
           >
             <option value="hotels">Hotels</option>
@@ -140,8 +127,58 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType })
           </select>
         </div>
 
-        {/* Location field for non-flight services */}
-        {searchType !== 'flights' && (
+        {searchType === 'flights' ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
+              {['one-way', 'round-trip'].map((mode) => (
+                <button
+                  type="button"
+                  key={mode}
+                  onClick={() => setTripType(mode)}
+                  className={`rounded-md px-3 py-2 text-sm font-medium capitalize ${tripType === mode ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600'}`}
+                >
+                  {mode.replace('-', ' ')}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <label className="block text-sm font-medium text-slate-700">
+                Origin Airport
+                <select
+                  value={origin}
+                  onChange={(event) => setOrigin(event.target.value)}
+                  className="mt-2 w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  required
+                >
+                  <option value="">Select origin airport</option>
+                  {airports.map((airport) => (
+                    <option key={airport.code} value={airport.code}>
+                      {airport.code} - {airport.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block text-sm font-medium text-slate-700">
+                Destination Airport
+                <select
+                  value={destination}
+                  onChange={(event) => setDestination(event.target.value)}
+                  className="mt-2 w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  required
+                >
+                  <option value="">Select destination airport</option>
+                  {airports.map((airport) => (
+                    <option key={airport.code} value={airport.code}>
+                      {airport.code} - {airport.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+        ) : (
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
               <MapPin className="w-4 h-4 inline mr-1" />
@@ -149,13 +186,13 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType })
             </label>
             <select
               value={location}
-              onChange={(e) => setLocation(e.target.value)}
+              onChange={(event) => setLocation(event.target.value)}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
               required
             >
               <option value="">Select a city</option>
-              {cities.map(city => (
-                <option key={city.name} value={city.name}>
+              {cities.map((city) => (
+                <option key={`${city.name}-${city.country}`} value={city.name}>
                   {city.name}, {city.country}
                 </option>
               ))}
@@ -163,120 +200,97 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType })
           </div>
         )}
 
-        {/* Flight-specific fields */}
-        {searchType === 'flights' && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Origin Airport
-                </label>
-                <select
-                  value={origin}
-                  onChange={(e) => setOrigin(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
-                  required
-                >
-                  <option value="">Select origin airport</option>
-                  {airports.map(airport => (
-                    <option key={airport.code} value={airport.code}>
-                      {airport.code} - {airport.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Destination Airport
-                </label>
-                <select
-                  value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
-                  required
-                >
-                  <option value="">Select destination airport</option>
-                  {airports.map(airport => (
-                    <option key={airport.code} value={airport.code}>
-                      {airport.code} - {airport.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                <Calendar className="w-4 h-4 inline mr-1" />
-                Departure Date
-              </label>
-              <input
-                type="date"
-                value={checkIn}
-                onChange={(e) => setCheckIn(e.target.value)}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
-                required
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Hotel/Restaurant/Attraction/Spa fields */}
-        {(searchType === 'hotels' || searchType === 'restaurants' || searchType === 'attractions' || searchType === 'spa') && (
+        {(searchType === 'hotels' || searchType === 'restaurants' || searchType === 'attractions' || searchType === 'spa' || searchType === 'flights') && (
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                <Calendar className="w-4 h-4 inline mr-1" />
-                Check-in / Start Date
-              </label>
+            <label className="block text-sm font-medium text-slate-700">
+              <Calendar className="w-4 h-4 inline mr-1" />
+              {searchType === 'flights' ? 'Departure Date' : 'Check-in / Start Date'}
               <input
                 type="date"
                 value={checkIn}
-                onChange={(e) => setCheckIn(e.target.value)}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                onChange={(event) => setCheckIn(event.target.value)}
+                className="mt-2 w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
                 required
               />
-            </div>
-            {searchType === 'hotels' && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  <Calendar className="w-4 h-4 inline mr-1" />
-                  Check-out
-                </label>
+            </label>
+
+            {(searchType === 'hotels' || (searchType === 'flights' && tripType === 'round-trip')) && (
+              <label className="block text-sm font-medium text-slate-700">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                {searchType === 'flights' ? 'Return Date' : 'Check-out'}
                 <input
                   type="date"
                   value={checkOut}
-                  onChange={(e) => setCheckOut(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  onChange={(event) => setCheckOut(event.target.value)}
+                  className="mt-2 w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  required={searchType === 'flights' && tripType === 'round-trip'}
                 />
-              </div>
+              </label>
             )}
           </div>
         )}
 
-        {/* Guests field for applicable services */}
-        {(searchType === 'hotels' || searchType === 'restaurants' || searchType === 'attractions' || searchType === 'spa' || searchType === 'flights') && (
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              <Users className="w-4 h-4 inline mr-1" />
-              Number of Guests
-            </label>
-            <input
-              type="number"
-              min="1"
-              max="10"
-              value={guests}
-              onChange={(e) => setGuests(parseInt(e.target.value))}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
-              required
-            />
+        {searchType === 'flights' && checkIn && (
+          <div className="rounded-lg border border-blue-100 bg-blue-50 p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">Fare calendar</p>
+            <div className="grid grid-cols-3 gap-2">
+              {Array.from({ length: 15 }, (_, index) => {
+                const date = new Date(checkIn);
+                date.setDate(date.getDate() + index - 7);
+                const value = date.toISOString().split('T')[0];
+                const fare = 280 + Math.abs(index - 7) * 18;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setCheckIn(value)}
+                    className={`rounded-md border px-2 py-1 text-xs ${checkIn === value ? 'border-blue-600 bg-white text-blue-700' : 'border-blue-100 bg-white/70 text-slate-600'}`}
+                  >
+                    {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    <span className="block font-semibold">${fare}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
+
+        {searchType === 'flights' && (
+          <label className="block text-sm font-medium text-slate-700">
+            Cabin Class
+            <select
+              value={cabinClass}
+              onChange={(event) => setCabinClass(event.target.value)}
+              className="mt-2 w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+            >
+              <option value="economy">Economy</option>
+              <option value="business">Business</option>
+              <option value="first">First Class</option>
+            </select>
+          </label>
+        )}
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            <Users className="w-4 h-4 inline mr-1" />
+            Guests
+          </label>
+          <input
+            type="number"
+            value={guests}
+            onChange={(event) => setGuests(parseInt(event.target.value, 10) || 1)}
+            min="1"
+            max="10"
+            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+          />
+        </div>
 
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 font-medium transition"
+          className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 font-medium transition flex items-center justify-center gap-2"
         >
+          <Search className="w-4 h-4" />
           {isLoading ? 'Searching...' : 'Search'}
         </button>
       </form>

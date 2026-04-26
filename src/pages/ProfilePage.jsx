@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Camera, Loader, AlertCircle } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 
 export const ProfilePage = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -19,31 +18,15 @@ export const ProfilePage = () => {
   });
 
   useEffect(() => {
-    const loadProfile = async () => {
-      if (!user) return;
-      try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (error) throw error;
-        if (data) {
-          setFormData({
-            full_name: data.full_name || '',
-            phone: data.phone || '',
-            date_of_birth: data.date_of_birth || '',
-            nationality: data.nationality || '',
-            passport_number: data.passport_number || '',
-          });
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load profile');
-      }
-    };
-
-    loadProfile();
+    if (!user) return;
+    setFormData((prev) => ({
+      ...prev,
+      full_name: user.fullName || '',
+      phone: user.phone || '',
+      date_of_birth: user.dateOfBirth || '',
+      nationality: user.nationality || '',
+      passport_number: user.passportNumber || '',
+    }));
   }, [user]);
 
   const handleChange = (e) => {
@@ -60,12 +43,7 @@ export const ProfilePage = () => {
     try {
       if (!user) throw new Error('Not authenticated');
 
-      const { error } = await supabase
-        .from('users')
-        .update(formData)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
+      await updateProfile(formData);
       setSuccess('Profile updated successfully!');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update profile');

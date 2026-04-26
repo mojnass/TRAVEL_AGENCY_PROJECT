@@ -7,7 +7,6 @@ import { bookingService } from '../lib/bookingService';
 import { notificationService } from '../lib/notificationService';
 
 export const HotelsPage = () => {
-  const { user } = useNavigate ? useNavigate() && null : null;
   const navigate = useNavigate();
   const { user: authUser } = useAuth();
 

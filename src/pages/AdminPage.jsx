@@ -1,12 +1,66 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../lib/supabase';
+import { apiDelete, apiGet, apiPost, apiPut } from '../lib/api';
 import {
   Users, TrendingUp, DollarSign, AlertCircle,
   Loader, Search, CheckCircle, XCircle, Shield,
-  BarChart2, Package, LogOut, RefreshCw
+  BarChart2, Package, LogOut, RefreshCw, Plus, Save, Trash2
 } from 'lucide-react';
+
+const catalogSchemas = {
+  flights: {
+    label: 'Flights',
+    endpoint: '/api/flights',
+    idField: 'offer_id',
+    fields: ['airline_code', 'flight_number', 'origin', 'destination', 'price', 'duration_minutes', 'stops', 'cabin_class', 'availability'],
+    defaults: { cabin_class: 'economy', stops: 0, availability: 20, currency: 'USD' },
+  },
+  hotels: {
+    label: 'Hotels',
+    endpoint: '/api/hotels',
+    idField: 'hotel_id',
+    fields: ['name', 'city', 'country', 'star_rating', 'price_per_night', 'description'],
+    defaults: { country: 'Lebanon', star_rating: 4 },
+  },
+  restaurants: {
+    label: 'Restaurants',
+    endpoint: '/api/restaurants',
+    idField: 'restaurant_id',
+    fields: ['name', 'city', 'cuisine_type', 'price_tier', 'rating'],
+    defaults: { price_tier: '$$', rating: 4.5 },
+  },
+  attractions: {
+    label: 'Attractions',
+    endpoint: '/api/attractions',
+    idField: 'attraction_id',
+    fields: ['name', 'city', 'category', 'rating', 'price', 'requires_advance_booking'],
+    defaults: { rating: 4.5, requires_advance_booking: true },
+  },
+  spa: {
+    label: 'Spa',
+    endpoint: '/api/spa',
+    idField: 'spa_id',
+    fields: ['name', 'city', 'type', 'rating', 'price'],
+    defaults: { rating: 4.6, type: 'Wellness' },
+  },
+  bundles: {
+    label: 'Bundles',
+    endpoint: '/api/bundles',
+    idField: 'bundle_id',
+    fields: ['name', 'destination', 'status', 'total_original_price', 'discounted_price', 'description'],
+    defaults: { status: 'published' },
+  },
+};
+
+const catalogTableMap = {
+  flights: 'flight_offers',
+  hotels: 'hotels',
+  restaurants: 'restaurants',
+  attractions: 'attractions',
+  spa: 'spa_venues',
+  bundles: 'bundles',
+};
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Admin Page
@@ -17,13 +71,18 @@ export const AdminPage = () => {
   const [activeTab, setActiveTab] = useState('analytics');
   const [users, setUsers]         = useState([]);
   const [bookings, setBookings]   = useState([]);
+  const [records, setRecords]     = useState([]);
+  const [activeCatalog, setActiveCatalog] = useState('flights');
+  const [catalogForm, setCatalogForm] = useState(catalogSchemas.flights.defaults);
+  const [editingRecord, setEditingRecord] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError]         = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Redirect non-admins
   useEffect(() => {
-    if (user && user.user_metadata?.role !== 'admin') {
+    if (user && !user.roles?.includes('ADMIN')) {
       navigate('/dashboard');
     }
   }, [user, navigate]);
@@ -32,11 +91,13 @@ export const AdminPage = () => {
     try {
       setIsLoading(true);
       setError('');
-      const [{ data: usersData }, { data: bookingsData }] = await Promise.all([
-        supabase.from('users').select('*').order('created_at', { ascending: false }),
-        supabase.from('bookings').select('*').order('created_at', { ascending: false }),
+      const [usersData, recordsData] = await Promise.all([
+        apiGet('/api/admin/users'),
+        apiGet('/api/admin/records'),
       ]);
+      const bookingsData = recordsData.filter((record) => record._table === 'bookings');
       setUsers(usersData || []);
+      setRecords(recordsData || []);
       setBookings(bookingsData || []);
     } catch (err) {
       setError(err.message || 'Failed to load admin data');
@@ -66,19 +127,90 @@ export const AdminPage = () => {
 
   const filteredUsers = users.filter(u =>
     u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
+    (u.fullName || u.full_name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleSuspend = async (userId, isSuspended) => {
-    await supabase.from('users').update({ is_suspended: !isSuspended }).eq('user_id', userId);
-    setUsers(prev => prev.map(u => u.user_id === userId ? { ...u, is_suspended: !isSuspended } : u));
+    setUsers(prev => prev.map(u => (u.id || u.user_id) === userId ? { ...u, is_suspended: !isSuspended } : u));
   };
 
   const tabs = [
     { id: 'analytics', label: 'Analytics',  icon: BarChart2 },
     { id: 'users',     label: 'Users',       icon: Users },
     { id: 'bookings',  label: 'Bookings',    icon: Package },
+    { id: 'catalog',   label: 'Catalog',     icon: Plus },
   ];
+
+  const handleCatalogChange = (catalogKey) => {
+    setActiveCatalog(catalogKey);
+    setEditingRecord(null);
+    setCatalogForm(catalogSchemas[catalogKey].defaults);
+  };
+
+  const handleEditRecord = (record) => {
+    const schema = catalogSchemas[activeCatalog];
+    setEditingRecord(record);
+    setCatalogForm({
+      ...schema.defaults,
+      ...Object.fromEntries(schema.fields.map((field) => [field, record[field] ?? ''])),
+    });
+  };
+
+  const handleResetForm = () => {
+    setEditingRecord(null);
+    setCatalogForm(catalogSchemas[activeCatalog].defaults);
+  };
+
+  const handleSaveCatalog = async (event) => {
+    event.preventDefault();
+    const schema = catalogSchemas[activeCatalog];
+    setIsSaving(true);
+    setError('');
+
+    try {
+      const payload = Object.fromEntries(
+        Object.entries(catalogForm).map(([key, value]) => {
+          if (value === 'true') return [key, true];
+          if (value === 'false') return [key, false];
+          if (value !== '' && !Number.isNaN(Number(value)) && ['price', 'price_per_night', 'rating', 'star_rating', 'duration_minutes', 'stops', 'availability', 'total_original_price', 'discounted_price'].includes(key)) {
+            return [key, Number(value)];
+          }
+          return [key, value];
+        })
+      );
+
+      if (editingRecord) {
+        await apiPut(`${schema.endpoint}/${editingRecord[schema.idField]}`, payload);
+      } else {
+        await apiPost(schema.endpoint, payload);
+      }
+
+      await loadData();
+      handleResetForm();
+    } catch (err) {
+      setError(err.message || 'Failed to save catalog item');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteRecord = async (record) => {
+    const schema = catalogSchemas[activeCatalog];
+    if (!window.confirm(`Delete ${record.name || record.flight_number || 'this item'}?`)) return;
+
+    setIsSaving(true);
+    try {
+      await apiDelete(`${schema.endpoint}/${record[schema.idField]}`);
+      await loadData();
+      if (editingRecord?.[schema.idField] === record[schema.idField]) {
+        handleResetForm();
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to delete catalog item');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -277,13 +409,13 @@ export const AdminPage = () => {
                           </td>
                         </tr>
                       ) : filteredUsers.map(u => (
-                        <tr key={u.user_id} className="hover:bg-slate-50 transition">
+                        <tr key={u.id || u.user_id} className="hover:bg-slate-50 transition">
                           <td className="px-5 py-4">
-                            <div className="font-medium text-slate-900">{u.full_name || 'â€”'}</div>
+                            <div className="font-medium text-slate-900">{u.fullName || u.full_name || '-'}</div>
                           </td>
                           <td className="px-5 py-4 text-slate-600">{u.email}</td>
                           <td className="px-5 py-4 text-slate-500">
-                            {u.created_at ? new Date(u.created_at).toLocaleDateString() : 'â€”'}
+                            {u.createdAt || u.created_at ? new Date(u.createdAt || u.created_at).toLocaleDateString() : '-'}
                           </td>
                           <td className="px-5 py-4">
                             <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -300,7 +432,7 @@ export const AdminPage = () => {
                           </td>
                           <td className="px-5 py-4">
                             <button
-                              onClick={() => handleSuspend(u.user_id, u.is_suspended)}
+                              onClick={() => handleSuspend(u.id || u.user_id, u.is_suspended)}
                               className={`text-xs font-medium px-3 py-1.5 rounded-lg border transition ${
                                 u.is_suspended
                                   ? 'border-green-200 text-green-700 hover:bg-green-50'
@@ -378,8 +510,170 @@ export const AdminPage = () => {
                 </div>
               </div>
             )}
+
+            {activeTab === 'catalog' && (
+              <CatalogPanel
+                activeCatalog={activeCatalog}
+                catalogForm={catalogForm}
+                editingRecord={editingRecord}
+                isSaving={isSaving}
+                records={records.filter((record) => record._table === catalogTableMap[activeCatalog])}
+                onCatalogChange={handleCatalogChange}
+                onDeleteRecord={handleDeleteRecord}
+                onEditRecord={handleEditRecord}
+                onFormChange={setCatalogForm}
+                onResetForm={handleResetForm}
+                onSave={handleSaveCatalog}
+              />
+            )}
           </>
         )}
+      </div>
+    </div>
+  );
+};
+
+const CatalogPanel = ({
+  activeCatalog,
+  catalogForm,
+  editingRecord,
+  isSaving,
+  records,
+  onCatalogChange,
+  onDeleteRecord,
+  onEditRecord,
+  onFormChange,
+  onResetForm,
+  onSave,
+}) => {
+  const schema = catalogSchemas[activeCatalog];
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[22rem_1fr]">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div className="flex flex-wrap gap-2 mb-5">
+          {Object.entries(catalogSchemas).map(([key, item]) => (
+            <button
+              key={key}
+              onClick={() => onCatalogChange(key)}
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+                activeCatalog === key
+                  ? 'bg-slate-900 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        <form onSubmit={onSave} className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-slate-900">
+              {editingRecord ? 'Edit Item' : 'New Item'}
+            </h2>
+            {editingRecord && (
+              <button type="button" onClick={onResetForm} className="text-sm text-blue-600 hover:text-blue-800">
+                New
+              </button>
+            )}
+          </div>
+
+          {schema.fields.map((field) => (
+            <label key={field} className="block text-sm font-medium text-slate-700">
+              {field.replaceAll('_', ' ')}
+              {field === 'description' ? (
+                <textarea
+                  value={catalogForm[field] || ''}
+                  onChange={(event) => onFormChange((current) => ({ ...current, [field]: event.target.value }))}
+                  rows={3}
+                  className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+              ) : field === 'requires_advance_booking' ? (
+                <select
+                  value={String(catalogForm[field] ?? true)}
+                  onChange={(event) => onFormChange((current) => ({ ...current, [field]: event.target.value }))}
+                  className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                >
+                  <option value="true">Required</option>
+                  <option value="false">Optional</option>
+                </select>
+              ) : (
+                <input
+                  value={catalogForm[field] || ''}
+                  onChange={(event) => onFormChange((current) => ({ ...current, [field]: event.target.value }))}
+                  className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+              )}
+            </label>
+          ))}
+
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-blue-300"
+          >
+            {isSaving ? <Loader className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {editingRecord ? 'Save Changes' : 'Create Item'}
+          </button>
+        </form>
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between p-5 border-b border-slate-100">
+          <div>
+            <h2 className="font-semibold text-slate-900">{schema.label} Catalog</h2>
+            <p className="text-sm text-slate-500">{records.length} records</p>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b border-slate-100">
+              <tr>
+                {schema.fields.slice(0, 5).map((field) => (
+                  <th key={field} className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                    {field.replaceAll('_', ' ')}
+                  </th>
+                ))}
+                <th className="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {records.length === 0 ? (
+                <tr>
+                  <td colSpan={schema.fields.slice(0, 5).length + 1} className="text-center py-12 text-slate-400">
+                    No records yet
+                  </td>
+                </tr>
+              ) : records.map((record) => (
+                <tr key={record[schema.idField]} className="hover:bg-slate-50 transition">
+                  {schema.fields.slice(0, 5).map((field) => (
+                    <td key={field} className="px-5 py-4 text-slate-700 max-w-[14rem] truncate">
+                      {String(record[field] ?? '-')}
+                    </td>
+                  ))}
+                  <td className="px-5 py-4">
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => onEditRecord(record)}
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-100"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => onDeleteRecord(record)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-red-200 text-xs font-medium text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

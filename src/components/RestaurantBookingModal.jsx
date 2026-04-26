@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Calendar, Users, CreditCard, Shield, Utensils, Clock, MapPin } from 'lucide-react';
+import { X, Shield, Utensils, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { bookingService } from '../lib/bookingService';
 import { useAuth } from '../context/AuthContext';
@@ -112,19 +112,6 @@ export const RestaurantBookingModal = ({ restaurant, isOpen, onClose, onBookingS
     if (bookingData.additional_services.chef_table) additionalCost += 150;
     
     return basePrice + additionalCost;
-  };
-
-  const addGuest = () => {
-    setBookingData(prev => ({
-      ...prev,
-      guests: [...prev.guests, {
-        first_name: '',
-        last_name: '',
-        email: '',
-        phone: '',
-        dietary_restrictions: ''
-      }]
-    }));
   };
 
   const updateGuest = (index, field, value) => {

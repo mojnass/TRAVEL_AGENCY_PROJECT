@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Search, MapPin, Calendar, Users, Plane } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, Users, Plane } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { flightService } from '../lib/flightService';
 import { CartComponent } from '../components/CartComponent';

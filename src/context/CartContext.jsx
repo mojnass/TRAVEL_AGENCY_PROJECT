@@ -7,11 +7,15 @@ export const CartProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   const addToCart = (item, type) => {
+    const serviceId = item.hotel_id || item.offer_id || item.restaurant_id || item.attraction_id || item.spa_id || item.bundle_id || item.user_bundle_id || item.id;
+    const firstRoom = item.hotel_rooms?.[0];
+    const firstSpaService = item.spa_services?.[0];
+    const price = item.price_per_night || firstRoom?.price_per_night || firstSpaService?.price || item.price || item.discounted_price || 0;
     const cartItem = {
-      id: `${type}_${item.hotel_id || item.offer_id || item.restaurant_id || item.attraction_id}`,
-      type: type.slice(0, -1), // Remove 's' from plural
+      id: `${type}_${serviceId}`,
+      type: type === 'spa' ? 'spa' : type.slice(0, -1),
       name: item.name || `${item.airline_code} ${item.flight_number}`,
-      price: item.price_per_night || item.price || 0,
+      price,
       image: item.thumbnail_url || '',
       details: item,
       quantity: 1,

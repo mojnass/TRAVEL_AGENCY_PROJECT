@@ -1,29 +1,12 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+import { apiRequest } from './api';
+
 const TOKEN_KEY = 'patronus_auth_token';
 const USER_KEY = 'patronus_auth_user';
 
-const request = async (path, options = {}) => {
-  const token = localStorage.getItem(TOKEN_KEY);
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
-
-  const contentType = response.headers.get('content-type') || '';
-  const body = contentType.includes('application/json') ? await response.json() : null;
-
-  if (!response.ok) {
-    throw new Error(body?.error || body?.message || 'Request failed');
-  }
-
-  return body;
-};
-
 const saveSession = ({ token, user }) => {
+  if (!token) {
+    return { token, user };
+  }
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
   return { token, user };
@@ -31,18 +14,33 @@ const saveSession = ({ token, user }) => {
 
 export const authService = {
   async register(email, password, fullName) {
-    return request('/api/auth/register', {
+    return apiRequest('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({ email, password, fullName }),
     });
   },
 
   async login(email, password) {
-    const session = await request('/api/auth/login', {
+    const session = await apiRequest('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
+    if (session.requiresTwoFactor) {
+      return session;
+    }
     return saveSession(session);
+  },
+
+  async verifyTwoFactor(email, otp) {
+    const session = await apiRequest('/api/auth/verify-2fa', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp }),
+    });
+    return saveSession(session);
+  },
+
+  async verifyEmail(token) {
+    return apiRequest(`/api/auth/verify-email?token=${encodeURIComponent(token)}`);
   },
 
   async logout() {
@@ -51,14 +49,26 @@ export const authService = {
   },
 
   async resetPassword(email) {
-    return request('/api/auth/reset-password', {
+    return apiRequest('/api/auth/reset-password', {
       method: 'POST',
       body: JSON.stringify({ email }),
     });
   },
 
-  async updatePassword() {
-    throw new Error('Password updates are not available yet.');
+  async completePasswordReset(token, password) {
+    return apiRequest('/api/auth/reset-password/complete', {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
+    });
+  },
+
+  async updateProfile(profile) {
+    const user = await apiRequest('/api/auth/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(profile),
+    });
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    return user;
   },
 
   async getCurrentUser() {
@@ -66,7 +76,7 @@ export const authService = {
     if (!token) return null;
 
     try {
-      const user = await request('/api/auth/me');
+      const user = await apiRequest('/api/auth/me');
       localStorage.setItem(USER_KEY, JSON.stringify(user));
       return user;
     } catch (error) {

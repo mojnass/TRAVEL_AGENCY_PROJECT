@@ -197,7 +197,7 @@ export const BundleViewPage = () => {
                 </div>
                 <div className="flex items-center gap-1">
                   <Users className="w-4 h-4" />
-                  <span>Created by {bundle.users?.full_name || 'Traveler'}</span>
+                  <span>Created by {bundle.fullName || bundle.users?.fullName || bundle.users?.full_name || 'Traveler'}</span>
                 </div>
               </div>
             </div>

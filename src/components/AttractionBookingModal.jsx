@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Calendar, Users, CreditCard, Shield, Ticket, Clock, MapPin } from 'lucide-react';
+import { X, Shield, Ticket, Clock, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { bookingService } from '../lib/bookingService';
 import { useAuth } from '../context/AuthContext';
@@ -113,19 +113,6 @@ export const AttractionBookingModal = ({ attraction, isOpen, onClose, onBookingS
     if (bookingData.additional_services.photo_package) additionalCost += 15;
     
     return (basePrice * bookingData.quantity) + additionalCost;
-  };
-
-  const addVisitor = () => {
-    setBookingData(prev => ({
-      ...prev,
-      visitors: [...prev.visitors, {
-        first_name: '',
-        last_name: '',
-        email: '',
-        phone: '',
-        age: ''
-      }]
-    }));
   };
 
   const updateVisitor = (index, field, value) => {

@@ -16,8 +16,8 @@ import { RestaurantsPage } from './pages/RestaurantsPage';
 import { AttractionsPage } from './pages/AttractionsPage';
 import { SpaPage } from './pages/SpaPage';
 import { FlightsPage } from './pages/FlightsPage';
-import { FlightBookingModal } from './components/FlightBookingModal';
 import { BookingConfirmationPage } from './pages/BookingConfirmationPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 
 function App() {
   return (
@@ -28,7 +28,9 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/search" element={<SearchPage />} />
+            <Route path="/bundle/:shareableLink" element={<BundleViewPage />} />
 
             {/* Jad Al Btaddini — Hotels, Restaurants, Attractions, Spa */}
             <Route path="/flights" element={<FlightsPage />} />
@@ -50,6 +52,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/itineraries"
+              element={
+                <ProtectedRoute>
+                  <ItineraryPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <AdminPage />
                 </ProtectedRoute>
               }
             />

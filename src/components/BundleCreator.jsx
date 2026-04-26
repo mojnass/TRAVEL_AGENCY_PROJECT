@@ -16,6 +16,17 @@ export const BundleCreator = () => {
   const [pdfUrl, setPdfUrl] = useState('');
   const [showPdfDownload, setShowPdfDownload] = useState(false);
 
+  const getServiceId = (item) => (
+    item.details.hotel_id ||
+    item.details.offer_id ||
+    item.details.restaurant_id ||
+    item.details.attraction_id ||
+    item.details.spa_id ||
+    item.details.bundle_id ||
+    item.details.user_bundle_id ||
+    item.id
+  );
+
   const handleCreateBundle = async () => {
     if (!user) {
       alert('Please log in to create bundles');
@@ -36,9 +47,12 @@ export const BundleCreator = () => {
 
       // Create composition data
       const compositionData = {
+        name: bundleName,
+        description: bundleDescription,
+        destination,
         items: cartItems.map(item => ({
           type: item.type,
-          service_id: item.details.hotel_id || item.details.offer_id || item.details.restaurant_id || item.details.attraction_id,
+          service_id: getServiceId(item),
           name: item.name,
           price: item.price,
           quantity: item.quantity

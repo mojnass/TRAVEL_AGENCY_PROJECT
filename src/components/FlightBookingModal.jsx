@@ -1,529 +1,332 @@
-import React, { useState } from 'react';
-import { X, Calendar, Users, CreditCard, Shield, Plane, Clock, MapPin } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { AlertCircle, Armchair, CheckCircle, Clock, Download, Loader, Plane, X } from 'lucide-react';
 import { bookingService } from '../lib/bookingService';
-import { useAuth } from '../context/AuthContext';
+import { flightService } from '../lib/flightService';
+import { notificationService } from '../lib/notificationService';
+import { createSimplePdfUrl } from '../lib/pdf';
 
-export const FlightBookingModal = ({ flight, isOpen, onClose, onBookingSuccess }) => {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const [bookingData, setBookingData] = useState({
-    passengers: [
-      {
-        first_name: '',
-        last_name: '',
-        email: user?.email || '',
-        phone: '',
-        date_of_birth: '',
-        passport_number: '',
-        nationality: ''
+const passengerTemplate = {
+  first_name: '',
+  last_name: '',
+  nationality: '',
+  passport_number: '',
+};
+
+const formatTime = (seconds) => {
+  const minutes = Math.floor(seconds / 60);
+  const remaining = seconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(remaining).padStart(2, '0')}`;
+};
+
+export const FlightBookingModal = ({ flight, user, onClose, onBooked }) => {
+  const [step, setStep] = useState(1);
+  const [seatMap, setSeatMap] = useState(null);
+  const [selectedSeat, setSelectedSeat] = useState('');
+  const [passenger, setPassenger] = useState(passengerTemplate);
+  const [extras, setExtras] = useState({ bag: false, premiumMeal: false });
+  const [payment, setPayment] = useState({ card: '', exp: '', cvv: '' });
+  const [secondsLeft, setSecondsLeft] = useState(15 * 60);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [ticketUrl, setTicketUrl] = useState('');
+  const [booking, setBooking] = useState(null);
+
+  useEffect(() => {
+    const loadSeatMap = async () => {
+      try {
+        const data = await flightService.getFlightSeatMap(flight.flight_number);
+        setSeatMap(data);
+      } catch (err) {
+        setError(err.message || 'Could not load seat map');
       }
-    ],
-    travel_date: '',
-    cabin_class: 'economy',
-    additional_services: {
-      insurance: false,
-      extra_baggage: false,
-      seat_selection: false
-    },
-    payment_method: 'credit_card'
-  });
-  
-  const [isBooking, setIsBooking] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [errors, setErrors] = useState({});
+    };
+    loadSeatMap();
+  }, [flight.flight_number]);
 
-  const validatePassenger = (passenger) => {
-    const errors = {};
-    if (!passenger.first_name) errors.first_name = 'First name is required';
-    if (!passenger.last_name) errors.last_name = 'Last name is required';
-    if (!passenger.email) errors.email = 'Email is required';
-    if (!passenger.phone) errors.phone = 'Phone is required';
-    if (!passenger.date_of_birth) errors.date_of_birth = 'Date of birth is required';
-    return errors;
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setSecondsLeft((current) => Math.max(0, current - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const unavailableSeats = useMemo(() => new Set(seatMap?.unavailable || []), [seatMap]);
+  const seats = useMemo(() => {
+    const rows = seatMap?.rows || 24;
+    const layout = (seatMap?.layout || 'ABC-DEF').replace('-', '').split('');
+    return Array.from({ length: rows }, (_, rowIndex) =>
+      layout.map((letter) => `${rowIndex + 1}${letter}`)
+    );
+  }, [seatMap]);
+
+  const updatePassenger = (field, value) => {
+    setPassenger((current) => ({ ...current, [field]: value }));
   };
 
-  const handleNextStep = () => {
-    const newErrors = validatePassenger(bookingData.passengers[0]);
-    
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-    
-    setErrors({});
-    setCurrentStep(currentStep + 1);
-  };
+  const extrasTotal = (extras.bag ? 45 : 0) + (extras.premiumMeal ? 80 : 0);
+  const total = Number(flight.price || 0) + extrasTotal;
+  const canContinue = step === 1
+    ? passenger.first_name && passenger.last_name && passenger.nationality && passenger.passport_number
+    : step === 2
+      ? selectedSeat
+      : payment.card && payment.exp && payment.cvv;
 
-  const handleBooking = async () => {
+  const handleConfirm = async () => {
     if (!user) {
-      alert('Please log in to make a booking');
+      setError('Please log in to book this flight.');
+      return;
+    }
+    if (secondsLeft === 0) {
+      setError('This seat hold expired. Close and start again to refresh availability.');
       return;
     }
 
-    setIsBooking(true);
-    setErrors({});
+    setIsLoading(true);
+    setError('');
 
     try {
-      const bookingPayload = {
-        user_id: user.id,
+      if (!/^4\d{15}$/.test(payment.card)) {
+        throw new Error('Card number is invalid');
+      }
+      const [month, year] = payment.exp.split('/').map((part) => Number(part));
+      const expiry = new Date(2000 + year, month, 0);
+      if (!month || !year || expiry < new Date()) {
+        throw new Error('Card is expired');
+      }
+      if (payment.card === '4000000000000002') {
+        throw new Error('Payment declined. Please try another card.');
+      }
+
+      const created = await bookingService.createBooking({
         booking_type: 'flight',
         service_id: flight.offer_id,
-        flight_details: {
-          airline_code: flight.airline_code,
-          flight_number: flight.flight_number,
-          origin: flight.origin,
-          destination: flight.destination,
-          departure_time: flight.departure_time,
-          arrival_time: flight.arrival_time,
-          duration_minutes: flight.duration_minutes,
-          stops: flight.stops
-        },
-        passengers: bookingData.passengers,
-        travel_date: bookingData.travel_date,
-        cabin_class: bookingData.cabin_class,
-        additional_services: bookingData.additional_services,
-        total_price: calculateTotalPrice(),
-        currency: 'USD',
-        status: 'pending',
-        payment_method: bookingData.payment_method
-      };
+        total_price: total,
+        currency: flight.currency || 'USD',
+        start_date: flight.departure_date || new Date().toISOString().split('T')[0],
+        status: 'confirmed',
+        seat_number: selectedSeat,
+      });
 
-      const booking = await bookingService.createBooking(bookingPayload);
-      
-      setIsBooking(false);
-      onBookingSuccess(booking);
-      onClose();
-      
-      // Navigate to booking confirmation page
-      navigate(`/booking-confirmation/${booking.booking_id}`);
-      
-    } catch (error) {
-      setIsBooking(false);
-      setErrors({ booking: error.message });
+      await bookingService.addPassengers(created.booking_id, [{
+        ...passenger,
+        seat_number: selectedSeat,
+      }]);
+      const selectedExtras = [
+        extras.bag ? { name: 'Checked bag', price: 45 } : null,
+        extras.premiumMeal ? { name: 'Caviar and champagne meal', price: 80 } : null,
+      ].filter(Boolean);
+      if (selectedExtras.length > 0) {
+        await bookingService.addExtras(created.booking_id, selectedExtras);
+      }
+
+      await notificationService.sendBookingConfirmation(user.id, created.booking_id);
+      const ticket = await flightService.getTicket(created.booking_id);
+      const pdfUrl = createSimplePdfUrl(`Patronus E-Ticket ${created.booking_id}`, [
+        `Passenger: ${passenger.first_name} ${passenger.last_name}`,
+        `Nationality: ${passenger.nationality}`,
+        `Passport: ${passenger.passport_number}`,
+        `Flight: ${flight.airline_code || ''} ${flight.flight_number || ''}`,
+        `Route: ${flight.origin || ''} to ${flight.destination || ''}`,
+        `Seat: ${selectedSeat}`,
+        `Extras: ${selectedExtras.map((extra) => extra.name).join(', ') || 'None'}`,
+        `Total paid: $${total.toFixed(2)}`,
+        `Booking ID: ${created.booking_id}`,
+        `QR: PATRONUS:${created.booking_id}:${selectedSeat}`,
+        `Ticket status: ${ticket.status}`,
+        `Issued: ${new Date().toLocaleString()}`,
+      ]);
+
+      setBooking(created);
+      setTicketUrl(pdfUrl);
+      setStep(3);
+      onBooked?.(created);
+    } catch (err) {
+      setError(err.message || 'Flight booking failed');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const calculateTotalPrice = () => {
-    let basePrice = flight.price || 0;
-    let additionalCost = 0;
-    
-    if (bookingData.additional_services.insurance) additionalCost += 50;
-    if (bookingData.additional_services.extra_baggage) additionalCost += 75;
-    if (bookingData.additional_services.seat_selection) additionalCost += 25;
-    
-    return basePrice + additionalCost;
-  };
-
-  const addPassenger = () => {
-    setBookingData(prev => ({
-      ...prev,
-      passengers: [...prev.passengers, {
-        first_name: '',
-        last_name: '',
-        email: '',
-        phone: '',
-        date_of_birth: '',
-        passport_number: '',
-        nationality: ''
-      }]
-    }));
-  };
-
-  const updatePassenger = (index, field, value) => {
-    const newPassengers = [...bookingData.passengers];
-    newPassengers[index][field] = value;
-    setBookingData(prev => ({ ...prev, passengers: newPassengers }));
-  };
-
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-slate-200 p-6">
-          <div className="flex justify-between items-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+      <div className="w-full max-w-4xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
+          <div className="flex items-center gap-3">
+            <Plane className="h-6 w-6 text-blue-600" />
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Book Your Flight</h2>
-              <p className="text-slate-600 mt-1">
-                {flight.airline_code} {flight.flight_number} • {flight.origin} → {flight.destination}
-              </p>
+              <h2 className="text-lg font-bold text-slate-900">Flight Checkout</h2>
+              <p className="text-sm text-slate-500">{flight.airline_code} {flight.flight_number} - {flight.origin} to {flight.destination}</p>
             </div>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="border-b border-slate-100 px-6 py-3">
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <span className={`rounded-full px-3 py-1 ${step === 1 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}>1 Passenger</span>
+            <span className={`rounded-full px-3 py-1 ${step === 2 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}>2 Seat & Extras</span>
+            <span className={`rounded-full px-3 py-1 ${step === 3 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}>3 Payment</span>
+            <span className={`rounded-full px-3 py-1 ${step === 4 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}>4 Ticket</span>
+            <span className={`ml-auto inline-flex items-center gap-2 rounded-lg px-3 py-1 font-medium ${secondsLeft < 120 ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>
+              <Clock className="h-4 w-4" />
+              Hold {formatTime(secondsLeft)}
+            </span>
+          </div>
+        </div>
+
+        {error && (
+          <div className="mx-6 mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            {error}
+          </div>
+        )}
+
+        <div className="p-6">
+          {step === 1 && (
+            <div className="max-w-2xl">
+              <h3 className="mb-4 font-semibold text-slate-900">Passenger details</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {[
+                  ['first_name', 'First name'],
+                  ['last_name', 'Last name'],
+                  ['nationality', 'Nationality'],
+                  ['passport_number', 'Passport number'],
+                ].map(([field, label]) => (
+                  <label key={field} className="text-sm font-medium text-slate-700">
+                    {label}
+                    <input
+                      value={passenger[field]}
+                      onChange={(event) => updatePassenger(field, event.target.value)}
+                      className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="grid gap-6 lg:grid-cols-[1fr_18rem]">
+              <div>
+                <h3 className="mb-3 font-semibold text-slate-900">Choose a seat</h3>
+                <div className="rounded-xl border border-slate-200 p-4">
+                  <div className="mb-4 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Front</div>
+                  <div className="space-y-2">
+                    {seats.map((row, index) => (
+                      <div key={index} className="grid grid-cols-[2rem_repeat(3,2.25rem)_1rem_repeat(3,2.25rem)] items-center justify-center gap-1">
+                        <span className="text-right text-xs text-slate-400">{index + 1}</span>
+                        {row.map((seat, seatIndex) => {
+                          const unavailable = unavailableSeats.has(seat);
+                          const selected = selectedSeat === seat;
+                          return (
+                            <button
+                              key={seat}
+                              type="button"
+                              onClick={() => !unavailable && setSelectedSeat(seat)}
+                              disabled={unavailable}
+                              className={`flex h-9 w-9 items-center justify-center rounded-md border text-xs font-semibold transition ${
+                                selected
+                                  ? 'border-blue-600 bg-blue-600 text-white'
+                                  : unavailable
+                                    ? 'border-slate-200 bg-slate-100 text-slate-300'
+                                    : 'border-slate-200 bg-white text-slate-600 hover:border-blue-400 hover:bg-blue-50'
+                              } ${seatIndex === 3 ? 'col-start-6' : ''}`}
+                            >
+                              <Armchair className="h-4 w-4" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <aside className="rounded-xl border border-slate-200 p-4">
+                <h3 className="font-semibold text-slate-900">Fare summary</h3>
+                <div className="mt-4 space-y-3 text-sm">
+                  <div className="flex justify-between"><span className="text-slate-500">Base fare</span><span>${flight.price || 0}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Seat</span><span>{selectedSeat || 'None'}</span></div>
+                  <label className="flex items-center justify-between gap-3">
+                    <span className="text-slate-500">Checked bag</span>
+                    <input type="checkbox" checked={extras.bag} onChange={(e) => setExtras((current) => ({ ...current, bag: e.target.checked }))} />
+                  </label>
+                  <label className="flex items-center justify-between gap-3">
+                    <span className="text-slate-500">Caviar meal</span>
+                    <input type="checkbox" checked={extras.premiumMeal} onChange={(e) => setExtras((current) => ({ ...current, premiumMeal: e.target.checked }))} />
+                  </label>
+                  <div className="border-t border-slate-100 pt-3 flex justify-between font-bold"><span>Total</span><span>${total.toFixed(2)}</span></div>
+                </div>
+              </aside>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="grid gap-6 lg:grid-cols-[1fr_18rem]">
+              <div>
+                <h3 className="mb-4 font-semibold text-slate-900">Payment</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="sm:col-span-2 text-sm font-medium text-slate-700">
+                    Card number
+                    <input value={payment.card} onChange={(e) => setPayment((current) => ({ ...current, card: e.target.value }))} placeholder="4111111111111111" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2" />
+                  </label>
+                  <label className="text-sm font-medium text-slate-700">
+                    Expiry MM/YY
+                    <input value={payment.exp} onChange={(e) => setPayment((current) => ({ ...current, exp: e.target.value }))} placeholder="12/28" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2" />
+                  </label>
+                  <label className="text-sm font-medium text-slate-700">
+                    CVV
+                    <input value={payment.cvv} onChange={(e) => setPayment((current) => ({ ...current, cvv: e.target.value }))} placeholder="123" className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2" />
+                  </label>
+                </div>
+              </div>
+              <aside className="rounded-xl border border-slate-200 p-4 text-sm">
+                <h3 className="font-semibold text-slate-900">Review</h3>
+                <div className="mt-4 space-y-2">
+                  <div className="flex justify-between"><span>Fare</span><span>${Number(flight.price || 0).toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span>Extras</span><span>${extrasTotal.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span>Seat</span><span>{selectedSeat}</span></div>
+                  <div className="border-t pt-2 flex justify-between font-bold"><span>Total</span><span>${total.toFixed(2)}</span></div>
+                </div>
+              </aside>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="text-center">
+              <CheckCircle className="mx-auto mb-4 h-14 w-14 text-green-600" />
+              <h3 className="text-xl font-bold text-slate-900">Flight booked</h3>
+              <p className="mt-2 text-slate-600">Booking #{booking?.booking_id}</p>
+              <button
+                onClick={() => window.open(ticketUrl, '_blank')}
+                className="mt-6 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-3 font-medium text-white hover:bg-blue-700"
+              >
+                <Download className="h-4 w-4" />
+                Download E-Ticket PDF
+              </button>
+            </div>
+          )}
+        </div>
+
+        {step < 4 && (
+          <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4">
             <button
-              onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-lg transition"
+              onClick={() => (step === 1 ? onClose() : setStep(step - 1))}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
-              <X className="w-5 h-5" />
+              {step === 1 ? 'Cancel' : 'Back'}
+            </button>
+            <button
+              onClick={() => (step < 3 ? setStep(step + 1) : handleConfirm())}
+              disabled={!canContinue || isLoading || secondsLeft === 0}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-blue-300"
+            >
+              {isLoading && <Loader className="h-4 w-4 animate-spin" />}
+              {step < 3 ? 'Continue' : 'Pay & Confirm'}
             </button>
           </div>
-        </div>
-
-        {/* Progress Steps */}
-        <div className="px-6 py-4 border-b border-slate-200">
-          <div className="flex items-center justify-between">
-            {[1, 2, 3].map((step) => (
-              <div key={step} className="flex items-center">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  currentStep >= step ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'
-                }`}>
-                  {step}
-                </div>
-                <span className={`ml-2 text-sm ${
-                  currentStep >= step ? 'text-blue-600 font-medium' : 'text-slate-600'
-                }`}>
-                  {step === 1 ? 'Passengers' : step === 2 ? 'Services' : 'Payment'}
-                </span>
-                {step < 3 && (
-                  <div className={`w-16 h-0.5 mx-4 ${
-                    currentStep > step ? 'bg-blue-600' : 'bg-slate-200'
-                  }`} />
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="p-6">
-          {/* Step 1: Passenger Details */}
-          {currentStep === 1 && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-slate-900">Passenger Information</h3>
-              
-              {bookingData.passengers.map((passenger, index) => (
-                <div key={index} className="border border-slate-200 rounded-lg p-4">
-                  <div className="flex justify-between items-center mb-4">
-                    <h4 className="font-medium text-slate-900">
-                      Passenger {index + 1} {index === 0 && '(Primary)'}
-                    </h4>
-                    {index > 0 && (
-                      <button
-                        onClick={() => {
-                          const newPassengers = bookingData.passengers.filter((_, i) => i !== index);
-                          setBookingData(prev => ({ ...prev, passengers: newPassengers }));
-                        }}
-                        className="text-red-600 hover:text-red-700 text-sm"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">First Name</label>
-                      <input
-                        type="text"
-                        value={passenger.first_name}
-                        onChange={(e) => updatePassenger(index, 'first_name', e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                      {errors[`passenger_${index}_first_name`] && (
-                        <p className="text-red-600 text-sm mt-1">{errors[`passenger_${index}_first_name`]}</p>
-                      )}
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Last Name</label>
-                      <input
-                        type="text"
-                        value={passenger.last_name}
-                        onChange={(e) => updatePassenger(index, 'last_name', e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                      {errors[`passenger_${index}_last_name`] && (
-                        <p className="text-red-600 text-sm mt-1">{errors[`passenger_${index}_last_name`]}</p>
-                      )}
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                      <input
-                        type="email"
-                        value={passenger.email}
-                        onChange={(e) => updatePassenger(index, 'email', e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Phone</label>
-                      <input
-                        type="tel"
-                        value={passenger.phone}
-                        onChange={(e) => updatePassenger(index, 'phone', e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
-                      <input
-                        type="date"
-                        value={passenger.date_of_birth}
-                        onChange={(e) => updatePassenger(index, 'date_of_birth', e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Passport Number</label>
-                      <input
-                        type="text"
-                        value={passenger.passport_number}
-                        onChange={(e) => updatePassenger(index, 'passport_number', e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              <button
-                onClick={addPassenger}
-                className="w-full py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition"
-              >
-                + Add Another Passenger
-              </button>
-            </div>
-          )}
-
-          {/* Step 2: Additional Services */}
-          {currentStep === 2 && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-slate-900">Additional Services</h3>
-              
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Travel Date</label>
-                <input
-                  type="date"
-                  value={bookingData.travel_date}
-                  onChange={(e) => setBookingData(prev => ({ ...prev, travel_date: e.target.value }))}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Cabin Class</label>
-                <select
-                  value={bookingData.cabin_class}
-                  onChange={(e) => setBookingData(prev => ({ ...prev, cabin_class: e.target.value }))}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
-                >
-                  <option value="economy">Economy</option>
-                  <option value="premium_economy">Premium Economy</option>
-                  <option value="business">Business</option>
-                  <option value="first">First Class</option>
-                </select>
-              </div>
-              
-              <div className="space-y-3">
-                <h4 className="font-medium text-slate-900">Optional Services</h4>
-                
-                <label className="flex items-center justify-between p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
-                  <div className="flex items-center gap-3">
-                    <Shield className="w-5 h-5 text-blue-600" />
-                    <div>
-                      <p className="font-medium text-slate-900">Travel Insurance</p>
-                      <p className="text-sm text-slate-600">Coverage for trip cancellation, medical emergencies</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <input
-                      type="checkbox"
-                      checked={bookingData.additional_services.insurance}
-                      onChange={(e) => setBookingData(prev => ({
-                        ...prev,
-                        additional_services: { ...prev.additional_services, insurance: e.target.checked }
-                      }))}
-                      className="w-4 h-4 text-blue-600"
-                    />
-                    <p className="text-sm text-slate-600 mt-1">+$50</p>
-                  </div>
-                </label>
-                
-                <label className="flex items-center justify-between p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
-                  <div className="flex items-center gap-3">
-                    <Users className="w-5 h-5 text-blue-600" />
-                    <div>
-                      <p className="font-medium text-slate-900">Extra Baggage</p>
-                      <p className="text-sm text-slate-600">Additional checked bag (23kg)</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <input
-                      type="checkbox"
-                      checked={bookingData.additional_services.extra_baggage}
-                      onChange={(e) => setBookingData(prev => ({
-                        ...prev,
-                        additional_services: { ...prev.additional_services, extra_baggage: e.target.checked }
-                      }))}
-                      className="w-4 h-4 text-blue-600"
-                    />
-                    <p className="text-sm text-slate-600 mt-1">+$75</p>
-                  </div>
-                </label>
-                
-                <label className="flex items-center justify-between p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
-                  <div className="flex items-center gap-3">
-                    <MapPin className="w-5 h-5 text-blue-600" />
-                    <div>
-                      <p className="font-medium text-slate-900">Seat Selection</p>
-                      <p className="text-sm text-slate-600">Choose your preferred seat</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <input
-                      type="checkbox"
-                      checked={bookingData.additional_services.seat_selection}
-                      onChange={(e) => setBookingData(prev => ({
-                        ...prev,
-                        additional_services: { ...prev.additional_services, seat_selection: e.target.checked }
-                      }))}
-                      className="w-4 h-4 text-blue-600"
-                    />
-                    <p className="text-sm text-slate-600 mt-1">+$25</p>
-                  </div>
-                </label>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Payment */}
-          {currentStep === 3 && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-slate-900">Payment Information</h3>
-              
-              <div className="border border-slate-200 rounded-lg p-4">
-                <h4 className="font-medium text-slate-900 mb-3">Flight Summary</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Flight:</span>
-                    <span className="font-medium">{flight.airline_code} {flight.flight_number}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Route:</span>
-                    <span className="font-medium">{flight.origin} → {flight.destination}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Passengers:</span>
-                    <span className="font-medium">{bookingData.passengers.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Base Price:</span>
-                    <span className="font-medium">${flight.price || 0}</span>
-                  </div>
-                  {bookingData.additional_services.insurance && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Travel Insurance:</span>
-                      <span className="font-medium">+$50</span>
-                    </div>
-                  )}
-                  {bookingData.additional_services.extra_baggage && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Extra Baggage:</span>
-                      <span className="font-medium">+$75</span>
-                    </div>
-                  )}
-                  {bookingData.additional_services.seat_selection && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Seat Selection:</span>
-                      <span className="font-medium">+$25</span>
-                    </div>
-                  )}
-                  <div className="border-t border-slate-200 pt-2 mt-2">
-                    <div className="flex justify-between">
-                      <span className="font-semibold text-slate-900">Total:</span>
-                      <span className="font-bold text-blue-600 text-lg">${calculateTotalPrice()}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Payment Method</label>
-                <select
-                  value={bookingData.payment_method}
-                  onChange={(e) => setBookingData(prev => ({ ...prev, payment_method: e.target.value }))}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
-                >
-                  <option value="credit_card">Credit Card</option>
-                  <option value="debit_card">Debit Card</option>
-                  <option value="paypal">PayPal</option>
-                </select>
-              </div>
-              
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-blue-900">Secure Payment</p>
-                    <p className="text-sm text-blue-700 mt-1">
-                      Your payment information is encrypted and secure. We never store your credit card details.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Error Display */}
-          {errors.booking && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="text-red-600">{errors.booking}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="sticky bottom-0 bg-white border-t border-slate-200 p-6">
-          <div className="flex justify-between items-center">
-            <div>
-              {currentStep > 1 && (
-                <button
-                  onClick={() => setCurrentStep(currentStep - 1)}
-                  className="px-4 py-2 text-slate-600 hover:text-slate-900 transition"
-                >
-                  Back
-                </button>
-              )}
-            </div>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition"
-              >
-                Cancel
-              </button>
-              
-              {currentStep < 3 ? (
-                <button
-                  onClick={handleNextStep}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                >
-                  Next
-                </button>
-              ) : (
-                <button
-                  onClick={handleBooking}
-                  disabled={isBooking}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 transition flex items-center gap-2"
-                >
-                  {isBooking ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    `Complete Booking - $${calculateTotalPrice()}`
-                  )}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
