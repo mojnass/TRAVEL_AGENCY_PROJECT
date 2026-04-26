@@ -6,12 +6,15 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-   
+      // In dev, forward /duffel and /api to the local Express server.
+      // Run `node server.js` alongside `npm run dev` for full local dev.
       '/duffel': {
-        target: 'https://api.duffel.com',
+        target: 'http://localhost:3000',
         changeOrigin: true,
-        secure: true,
-        rewrite: (path) => path.replace(/^\/duffel/, ''),
+      },
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
       },
     },
   },

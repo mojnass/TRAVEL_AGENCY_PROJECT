@@ -1,16 +1,20 @@
 {
-  "name": "vite-react-typescript-starter",
+  "name": "patronus-travel-agency",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "preview": "vite preview",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "start": "node server.js",
+    "build:start": "npm run build && npm run start"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
+    "express": "^4.19.2",
+    "http-proxy-middleware": "^3.0.3",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -28,5 +32,8 @@
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
     "vite": "^5.4.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

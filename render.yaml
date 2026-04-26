@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: patronus-travel-agency
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+      - key: DUFFEL_ACCESS_TOKEN
+        sync: false
