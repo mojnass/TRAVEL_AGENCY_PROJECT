@@ -87,9 +87,11 @@ export const DashboardPage = () => {
   };
 
   // ── Derived stats ─────────────────────────
-  const totalSpent   = bookings.reduce((s, b) => s + (parseFloat(b.total_price) || 0), 0);
-  const upcoming     = bookings.filter(b => new Date(b.start_date) >= new Date() && b.status !== 'cancelled');
-  const confirmed    = bookings.filter(b => b.status === 'confirmed');
+  // Ensure bookings is always an array
+  const safeBookings = Array.isArray(bookings) ? bookings : [];
+  const totalSpent   = safeBookings.reduce((s, b) => s + (parseFloat(b.total_price) || 0), 0);
+  const upcoming     = safeBookings.filter(b => new Date(b.start_date) >= new Date() && b.status !== 'cancelled');
+  const confirmed    = safeBookings.filter(b => b.status === 'confirmed');
 
   const tabs = [
     { id: 'all',         label: 'All',         icon: ClipboardList },
@@ -101,8 +103,8 @@ export const DashboardPage = () => {
   ];
 
   const filteredBookings = activeTab === 'all'
-    ? bookings
-    : bookings.filter(b => b.booking_type === activeTab.replace(/s$/, ''));
+    ? safeBookings
+    : safeBookings.filter(b => b.booking_type === activeTab.replace(/s$/, ''));
 
   // ─────────────────────────────────────────
   return (
@@ -201,7 +203,7 @@ export const DashboardPage = () => {
           <>
             {/* ── Stats ── */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <StatCard icon={ClipboardList} label="Total Bookings"  value={bookings.length}                        color="blue" />
+              <StatCard icon={ClipboardList} label="Total Bookings"  value={safeBookings.length}                        color="blue" />
               <StatCard icon={Calendar}      label="Upcoming Trips"  value={upcoming.length}                        color="green" />
               <StatCard icon={CheckCircle}   label="Confirmed"       value={confirmed.length}                       color="indigo" />
               <StatCard icon={DollarSign}    label="Total Spent"     value={`$${totalSpent.toFixed(0)}`}            color="purple" />
@@ -245,8 +247,8 @@ export const DashboardPage = () => {
                 <div className="flex overflow-x-auto border-b border-slate-100">
                   {tabs.map(({ id, label, icon: Icon }) => {
                     const count = id === 'all'
-                      ? bookings.length
-                      : bookings.filter(b => b.booking_type === id.replace(/s$/, '')).length;
+                      ? safeBookings.length
+                      : safeBookings.filter(b => b.booking_type === id.replace(/s$/, '')).length;
                     return (
                       <button
                         key={id}

@@ -3,19 +3,85 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   Plane, Hotel, Utensils, Ticket, Sparkles, Users,
   ChevronRight, ArrowRight, Search, MapPin, Calendar,
-  Star, Shield, Clock, Globe
+  Star, Shield, Clock, Globe, AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { cities, airports } from '../data/airports.js';
 
 export const HomePage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchTab, setSearchTab] = useState('flights');
   const [searchInput, setSearchInput] = useState('');
+  const [destinationInput, setDestinationInput] = useState('');
+  const [searchDate, setSearchDate] = useState('');
+  const [searchError, setSearchError] = useState('');
+  
+  // City dropdown states
+  const [showOriginDropdown, setShowOriginDropdown] = useState(false);
+  const [showDestinationDropdown, setShowDestinationDropdown] = useState(false);
+  const [filteredCities, setFilteredCities] = useState(cities);
+  const [filteredAirports, setFilteredAirports] = useState(airports);
+  
+  // Filter cities based on input
+  const filterCities = (input) => {
+    if (!input.trim()) {
+      setFilteredCities(cities);
+      return;
+    }
+    const filtered = cities.filter(city => 
+      city.name.toLowerCase().includes(input.toLowerCase()) ||
+      city.country.toLowerCase().includes(input.toLowerCase())
+    );
+    setFilteredCities(filtered);
+  };
+  
+  // Filter airports based on input
+  const filterAirports = (input) => {
+    if (!input.trim()) {
+      setFilteredAirports(airports);
+      return;
+    }
+    const filtered = airports.filter(airport => 
+      airport.name.toLowerCase().includes(input.toLowerCase()) ||
+      airport.code.toLowerCase().includes(input.toLowerCase()) ||
+      airport.country.toLowerCase().includes(input.toLowerCase())
+    );
+    setFilteredAirports(filtered);
+  };
 
   const handleQuickSearch = (e) => {
     e.preventDefault();
-    navigate('/search');
+    setSearchError('');
+    
+    // Validation: require input
+    if (!searchInput.trim()) {
+      setSearchError(`Please enter a ${searchTab === 'flights' ? 'departure city or airport' : 'city'} to search`);
+      return;
+    }
+    
+    // For flights, also require destination
+    if (searchTab === 'flights' && !destinationInput.trim()) {
+      setSearchError('Please enter a destination city or airport');
+      return;
+    }
+    
+    // Build search URL with proper parameters based on selected tab
+    const params = new URLSearchParams();
+    params.set('type', searchTab);
+    params.set('location', searchInput.trim());
+    
+    // Add destination for flights
+    if (searchTab === 'flights' && destinationInput.trim()) {
+      params.set('destination', destinationInput.trim());
+    }
+    
+    // Add date if selected
+    if (searchDate) {
+      params.set('date', searchDate);
+    }
+    
+    navigate(`/search?${params.toString()}`);
   };
 
   const searchTabs = [
@@ -94,7 +160,7 @@ export const HomePage = () => {
           </div>
 
           {/* ── Search Widget ── */}
-          <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
+          <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl overflow-visible">
             {/* tabs */}
             <div className="flex overflow-x-auto border-b border-slate-100">
               {searchTabs.map(({ id, label, icon: Icon }) => (
@@ -114,31 +180,131 @@ export const HomePage = () => {
             </div>
             {/* quick search form */}
             <form onSubmit={handleQuickSearch} className="p-6">
+              {/* Error message */}
+              {searchError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-600 text-sm">
+                  <AlertCircle className="w-4 h-4" />
+                  {searchError}
+                </div>
+              )}
               <div className="grid md:grid-cols-3 gap-4">
-                <div className="md:col-span-1 relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <div className="md:col-span-1 relative z-50">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 z-10" />
                   <input
                     type="text"
                     placeholder={searchTab === 'flights' ? 'From — city or airport' : 'Destination city'}
                     value={searchInput}
-                    onChange={e => setSearchInput(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    onChange={e => {
+                      setSearchInput(e.target.value);
+                      if (searchTab === 'flights') {
+                        filterAirports(e.target.value);
+                      } else {
+                        filterCities(e.target.value);
+                      }
+                      setShowOriginDropdown(true);
+                    }}
+                    onFocus={() => setShowOriginDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowOriginDropdown(false), 200)}
+                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm relative z-20"
                   />
+                  {/* City/Airport Dropdown */}
+                  {showOriginDropdown && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-2xl max-h-60 overflow-y-auto z-[100]">
+                      {searchTab === 'flights' ? (
+                        // Airports for flights
+                        filteredAirports.slice(0, 8).map((airport) => (
+                          <button
+                            key={airport.code}
+                            type="button"
+                            onClick={() => {
+                              setSearchInput(`${airport.name} (${airport.code})`);
+                              setShowOriginDropdown(false);
+                            }}
+                            className="w-full px-4 py-2 text-left hover:bg-slate-50 flex items-center gap-2 text-sm"
+                          >
+                            <Plane className="w-4 h-4 text-blue-500" />
+                            <div>
+                              <div className="font-medium">{airport.name}</div>
+                              <div className="text-xs text-slate-500">{airport.code} • {airport.country}</div>
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        // Cities for other services
+                        filteredCities.slice(0, 8).map((city) => (
+                          <button
+                            key={city.name}
+                            type="button"
+                            onClick={() => {
+                              setSearchInput(city.name);
+                              setShowOriginDropdown(false);
+                            }}
+                            className="w-full px-4 py-2 text-left hover:bg-slate-50 flex items-center gap-2 text-sm"
+                          >
+                            <MapPin className="w-4 h-4 text-blue-500" />
+                            <div>
+                              <div className="font-medium">{city.name}</div>
+                              <div className="text-xs text-slate-500">{city.country}</div>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                      {((searchTab === 'flights' && filteredAirports.length === 0) || 
+                        (searchTab !== 'flights' && filteredCities.length === 0)) && (
+                        <div className="px-4 py-2 text-sm text-slate-500">No matches found</div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {searchTab === 'flights' && (
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <div className="relative z-50">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 z-10" />
                     <input
                       type="text"
                       placeholder="To — city or airport"
-                      className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      value={destinationInput}
+                      onChange={e => {
+                        setDestinationInput(e.target.value);
+                        filterAirports(e.target.value);
+                        setShowDestinationDropdown(true);
+                      }}
+                      onFocus={() => setShowDestinationDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowDestinationDropdown(false), 200)}
+                      className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm relative z-20"
                     />
+                    {/* Destination Dropdown */}
+                    {showDestinationDropdown && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-2xl max-h-60 overflow-y-auto z-[100]">
+                        {filteredAirports.slice(0, 8).map((airport) => (
+                          <button
+                            key={airport.code}
+                            type="button"
+                            onClick={() => {
+                              setDestinationInput(`${airport.name} (${airport.code})`);
+                              setShowDestinationDropdown(false);
+                            }}
+                            className="w-full px-4 py-2 text-left hover:bg-slate-50 flex items-center gap-2 text-sm"
+                          >
+                            <Plane className="w-4 h-4 text-green-500" />
+                            <div>
+                              <div className="font-medium">{airport.name}</div>
+                              <div className="text-xs text-slate-500">{airport.code} • {airport.country}</div>
+                            </div>
+                          </button>
+                        ))}
+                        {filteredAirports.length === 0 && (
+                          <div className="px-4 py-2 text-sm text-slate-500">No airports found</div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="date"
+                    value={searchDate}
+                    onChange={e => setSearchDate(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
                 </div>

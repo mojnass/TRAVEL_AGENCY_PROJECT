@@ -8,12 +8,12 @@ import { spaService } from '../lib/spaService';
 import { bundleService } from '../lib/bundleService';
 import { airports, cities } from '../data/airports.js';
 
-export const SearchComponent = ({ onResults, onSearchStart, initialSearchType }) => {
+export const SearchComponent = ({ onResults, onSearchStart, initialSearchType, initialParams = {} }) => {
   const [searchType, setSearchType] = useState(initialSearchType || 'hotels');
-  const [origin, setOrigin] = useState('BEY');
-  const [destination, setDestination] = useState('');
-  const [location, setLocation] = useState('');
-  const [checkIn, setCheckIn] = useState('');
+  const [origin, setOrigin] = useState(initialParams?.location || 'BEY');
+  const [destination, setDestination] = useState(initialParams?.destination || '');
+  const [location, setLocation] = useState(initialParams?.location || '');
+  const [checkIn, setCheckIn] = useState(initialParams?.date || '');
   const [checkOut, setCheckOut] = useState('');
   const [guests, setGuests] = useState(2);
   const [tripType, setTripType] = useState('one-way');
@@ -25,6 +25,25 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType })
       setSearchType(initialSearchType);
     }
   }, [initialSearchType]);
+  
+  // Pre-fill form with initial parameters from URL
+  useEffect(() => {
+    if (initialParams) {
+      if (initialParams.location) {
+        if (initialSearchType === 'flights') {
+          setOrigin(initialParams.location);
+        } else {
+          setLocation(initialParams.location);
+        }
+      }
+      if (initialParams.destination) {
+        setDestination(initialParams.destination);
+      }
+      if (initialParams.date) {
+        setCheckIn(initialParams.date);
+      }
+    }
+  }, [initialParams, initialSearchType]);
 
   useEffect(() => {
     setCheckIn('');

@@ -14,15 +14,31 @@ export const SearchPage = () => {
   const [searchType, setSearchType] = useState('hotels'); // Default to hotels
   const [isSearching, setIsSearching] = useState(false);
 
-  // Set search type from URL parameter on mount
+  // Set search type and parameters from URL on mount
+  const [initialParams, setInitialParams] = useState({
+    location: '',
+    destination: '',
+    date: ''
+  });
+  
   useEffect(() => {
     const typeFromUrl = searchParams.get('type');
+    const locationFromUrl = searchParams.get('location');
+    const destinationFromUrl = searchParams.get('destination');
+    const dateFromUrl = searchParams.get('date');
     
     if (typeFromUrl) {
       setSearchType(typeFromUrl);
     } else {
       setSearchType('hotels');
     }
+    
+    // Store initial parameters to pass to SearchComponent
+    setInitialParams({
+      location: locationFromUrl || '',
+      destination: destinationFromUrl || '',
+      date: dateFromUrl || ''
+    });
   }, [searchParams]);
 
   const handleResults = (results, type) => {
@@ -65,6 +81,7 @@ export const SearchPage = () => {
               onResults={handleResults}
               onSearchStart={handleSearchStart}
               initialSearchType={searchType}
+              initialParams={initialParams}
             />
             <CartComponent />
             <BundleCreator />
