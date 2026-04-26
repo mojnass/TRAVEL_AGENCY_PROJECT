@@ -1,7 +1,5 @@
 // Flight search is proxied through the backend at /duffel to avoid exposing the
 // Duffel access token on the client. Set DUFFEL_ACCESS_TOKEN on the server only.
-// The Vite dev proxy (vite.config.js) forwards /duffel → https://api.duffel.com
-// and the production server must do the same, injecting the Authorization header.
 export const searchFlights = async (origin, destination, departureDate) => {
   const body = {
     data: {
@@ -18,6 +16,9 @@ export const searchFlights = async (origin, destination, departureDate) => {
   };
 
   try {
+    // Step 1: Create offer request
+    console.log('Creating offer request:', origin, '→', destination, 'on', departureDate);
+    
     const response = await fetch('/duffel/air/offer_requests', {
       method: 'POST',
       headers: {
@@ -29,17 +30,46 @@ export const searchFlights = async (origin, destination, departureDate) => {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.errors?.[0]?.message || 'Flight search failed');
+      const errorText = await response.text();
+      console.error('Duffel error response:', errorText);
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        throw new Error(`Server error: ${response.status}`);
+      }
+      throw new Error(errorData.errors?.[0]?.message || errorData.message || 'Flight search failed');
     }
 
     const result = await response.json();
+    console.log('Offer request created:', result.data?.id);
+    
+    // Step 2: Wait a moment for offers to be generated
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Step 3: Fetch the offers
+    const offerRequestId = result.data?.id;
+    if (!offerRequestId) {
+      throw new Error('No offer request ID returned');
+    }
+    
+    const offersResponse = await fetch(`/duffel/air/offers?offer_request_id=${offerRequestId}`);
+    
+    if (!offersResponse.ok) {
+      const errorText = await offersResponse.text();
+      console.error('Failed to fetch offers:', errorText);
+      // If offers fetch fails, return empty array - we still have the offer request
+      return [];
+    }
+    
+    const offersResult = await offersResponse.json();
+    console.log('Found', offersResult.data?.length || 0, 'offers');
     
     // Transform Duffel offers to our app's expected format
-    return transformDuffelOffers(result.data.offers);
+    return transformDuffelOffers(offersResult.data || []);
   } catch (error) {
     console.error('Duffel API Error:', error.message);
-    return [];
+    throw error; // Re-throw so the UI can show the error
   }
 };
 

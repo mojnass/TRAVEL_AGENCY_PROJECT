@@ -53,12 +53,31 @@ export const ResultsDisplay = ({ results, searchType }) => {
 
   const renderSummary = (result) => {
     if (searchType === 'flights') {
+      const airlineName = result.owner?.name || result.airline || 'Unknown Airline';
+      const airlineCode = result.owner?.iata_code || result.airline_code || 'XX';
+      const flightNum = result.flight_number || `${airlineCode}${Math.floor(Math.random() * 900) + 100}`;
+      const origin = result.origin?.iata_code || result.origin || '???';
+      const dest = result.destination?.iata_code || result.destination || '???';
+      const depTime = result.departure_time ? new Date(result.departure_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'TBD';
+      const arrTime = result.arrival_time ? new Date(result.arrival_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'TBD';
+      const duration = result.duration_minutes ? `${Math.floor(result.duration_minutes / 60)}h ${result.duration_minutes % 60}m` : 'TBD';
+      const stops = result.stops || 0;
+      
       return {
-        title: `${result.airline_code || ''} ${result.flight_number || ''}`.trim() || 'Flight offer',
-        location: `${result.origin || 'Origin'} to ${result.destination || 'Destination'}`,
-        meta: `${result.stops || 0} stops`,
-        description: `Duration: ${result.duration_minutes || 'TBD'} min`,
+        title: `${airlineName} ${flightNum}`,
+        airlineLogo: result.owner?.logo_symbol_url || null,
+        airlineCode: airlineCode,
+        origin: origin,
+        destination: dest,
+        departureTime: depTime,
+        arrivalTime: arrTime,
+        duration: duration,
+        stops: stops,
+        location: `${origin} → ${dest}`,
+        meta: stops === 0 ? 'Non-stop' : `${stops} stop${stops > 1 ? 's' : ''}`,
+        description: `Departs ${depTime} • Arrives ${arrTime} • ${duration}`,
         priceLabel: `$${getPrice(result)}`,
+        raw: result,
       };
     }
 
@@ -118,6 +137,72 @@ export const ResultsDisplay = ({ results, searchType }) => {
     const summary = renderSummary(result);
     const Icon = config.icon;
 
+    // Special layout for flights
+    if (searchType === 'flights') {
+      return (
+        <div className="border border-slate-200 rounded-xl p-5 hover:shadow-lg transition bg-white">
+          {/* Airline header */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              {summary.airlineLogo ? (
+                <img src={summary.airlineLogo} alt={summary.airlineCode} className="w-8 h-8 object-contain" />
+              ) : (
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Plane className="w-4 h-4 text-blue-600" />
+                </div>
+              )}
+              <div>
+                <h4 className="font-semibold text-slate-900">{summary.title}</h4>
+                <p className="text-xs text-slate-500">{summary.meta}</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-blue-600">{summary.priceLabel}</p>
+              <p className="text-xs text-slate-500">per person</p>
+            </div>
+          </div>
+
+          {/* Flight timeline */}
+          <div className="flex items-center gap-4 mb-4 py-3 border-y border-slate-100">
+            <div className="text-center">
+              <p className="text-xl font-bold text-slate-900">{summary.departureTime}</p>
+              <p className="text-sm text-slate-600 font-medium">{summary.origin}</p>
+            </div>
+            <div className="flex-1 flex flex-col items-center">
+              <p className="text-xs text-slate-400">{summary.duration}</p>
+              <div className="w-full h-0.5 bg-slate-300 my-1 relative">
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-blue-500 rounded-full"></div>
+              </div>
+              <Plane className="w-3 h-3 text-slate-400 rotate-90" />
+            </div>
+            <div className="text-center">
+              <p className="text-xl font-bold text-slate-900">{summary.arrivalTime}</p>
+              <p className="text-sm text-slate-600 font-medium">{summary.destination}</p>
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => addToCart(result, searchType)}
+              className="flex-1 px-4 py-2.5 border border-blue-600 text-blue-600 hover:bg-blue-50 text-sm font-medium rounded-lg transition flex items-center justify-center gap-2"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              Add to Cart
+            </button>
+            <button
+              onClick={() => setFlightCheckout(result)}
+              className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition flex items-center justify-center gap-2"
+            >
+              <Icon className="w-4 h-4" />
+              Book Now
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Default layout for other services
     return (
       <div className="border border-slate-200 rounded-lg p-4 hover:shadow-md transition bg-white">
         <div className="flex justify-between items-start gap-4 mb-3">
@@ -129,7 +214,7 @@ export const ResultsDisplay = ({ results, searchType }) => {
             </p>
           </div>
           <div className="flex items-center gap-1 text-sm text-slate-600">
-            {searchType === 'flights' ? <Plane className="w-4 h-4 text-blue-600" /> : <Star className="w-4 h-4 text-yellow-500 fill-current" />}
+            <Star className="w-4 h-4 text-yellow-500 fill-current" />
             <span>{summary.meta}</span>
           </div>
         </div>
@@ -148,7 +233,7 @@ export const ResultsDisplay = ({ results, searchType }) => {
                 Add to Cart
               </button>
               <button
-                onClick={() => (searchType === 'flights' ? setFlightCheckout(result) : setServiceCheckout(result))}
+                onClick={() => setServiceCheckout(result)}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm rounded-lg transition flex items-center gap-2"
               >
                 <Icon className="w-3 h-3" />

@@ -70,8 +70,11 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType, i
     setCheckOut('');
     if (searchType === 'flights') {
       setLocation('');
+      // Set default origin and destination if not already set
       setOrigin((current) => current || 'BEY');
+      setDestination((current) => current || 'DXB');
     } else {
+      setOrigin('');
       setDestination('');
     }
   }, [searchType]);
@@ -79,9 +82,17 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType, i
   const handleSearch = async (event) => {
     event.preventDefault();
 
-    if (searchType === 'flights' && (!origin || !destination || !checkIn)) {
-      alert('Please enter origin, destination, and departure date');
-      return;
+    // For flights, set default date to today if not selected
+    let searchCheckIn = checkIn;
+    if (searchType === 'flights') {
+      if (!origin || !destination) {
+        alert('Please select both origin and destination airports');
+        return;
+      }
+      if (!searchCheckIn) {
+        searchCheckIn = new Date().toISOString().split('T')[0];
+        setCheckIn(searchCheckIn);
+      }
     }
 
     if (searchType !== 'flights' && !location) {
@@ -103,7 +114,7 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType, i
           results = await flightService.searchFlights(
             origin,
             destination,
-            checkIn,
+            searchCheckIn,
             tripType === 'round-trip' ? checkOut : null,
             guests,
             cabinClass
@@ -128,15 +139,19 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType, i
       onResults(results, searchType);
     } catch (error) {
       console.error('Search failed:', error);
+      // Show actual error message if available, otherwise show generic message
+      const errorMessage = error?.message || error;
+      const isValidErrorMessage = errorMessage && typeof errorMessage === 'string' && !errorMessage.includes('undefined');
+      
       const messages = {
-        flights: 'No flights found for this route and date. Try different airports or dates.',
+        flights: isValidErrorMessage ? errorMessage : 'No flights found for this route. Please select valid airports (DXB, CDG, or BEY).',
         hotels: 'No hotels found in this city for the selected dates. Try different dates or a nearby city.',
         restaurants: 'No restaurants found in this city. Try a different city or check back later.',
         attractions: 'No attractions found in this city. Try a different city or expand your search.',
         spa: 'No spa services found in this city. Try a different city or check back later.',
         bundles: 'No bundles found for this destination. Try another city.',
       };
-      alert(messages[searchType] || 'Search failed. Please try again.');
+      alert(messages[searchType] || errorMessage || 'Search failed. Please try again.');
       onResults([], searchType);
     } finally {
       setIsLoading(false);

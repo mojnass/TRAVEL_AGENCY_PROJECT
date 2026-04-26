@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Armchair, CheckCircle, Clock, Download, Loader, Plane, X } from 'lucide-react';
+import { useEffect, useMemo, useState, useRef } from 'react';
+import { AlertCircle, Armchair, CheckCircle, Clock, Download, Loader, Plane, X, User, Upload, Calendar, CreditCard } from 'lucide-react';
 import { bookingService } from '../lib/bookingService';
 import { flightService } from '../lib/flightService';
 import { notificationService } from '../lib/notificationService';
@@ -10,6 +10,11 @@ const passengerTemplate = {
   last_name: '',
   nationality: '',
   passport_number: '',
+  date_of_birth: '',
+  passport_expiry: '',
+  phone: '',
+  email: '',
+  passport_photo: null,
 };
 
 const formatTime = (seconds) => {
@@ -30,6 +35,28 @@ export const FlightBookingModal = ({ flight, user, onClose, onBooked }) => {
   const [error, setError] = useState('');
   const [ticketUrl, setTicketUrl] = useState('');
   const [booking, setBooking] = useState(null);
+  const fileInputRef = useRef(null);
+
+  // Handle passport photo upload
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Photo must be less than 5MB');
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        setError('Please upload an image file');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPassenger(prev => ({ ...prev, passport_photo: reader.result }));
+        setError('');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   useEffect(() => {
     const loadSeatMap = async () => {
@@ -66,7 +93,9 @@ export const FlightBookingModal = ({ flight, user, onClose, onBooked }) => {
   const extrasTotal = (extras.bag ? 45 : 0) + (extras.premiumMeal ? 80 : 0);
   const total = Number(flight.price || 0) + extrasTotal;
   const canContinue = step === 1
-    ? passenger.first_name && passenger.last_name && passenger.nationality && passenger.passport_number
+    ? passenger.first_name && passenger.last_name && passenger.nationality && 
+      passenger.passport_number && passenger.date_of_birth && passenger.passport_expiry &&
+      passenger.phone && passenger.email
     : step === 2
       ? selectedSeat
       : payment.card && payment.exp && payment.cvv;
@@ -185,24 +214,131 @@ export const FlightBookingModal = ({ flight, user, onClose, onBooked }) => {
 
         <div className="p-6">
           {step === 1 && (
-            <div className="max-w-2xl">
-              <h3 className="mb-4 font-semibold text-slate-900">Passenger details</h3>
+            <div className="max-w-3xl">
+              <h3 className="mb-4 font-semibold text-slate-900 flex items-center gap-2">
+                <User className="w-5 h-5 text-blue-600" />
+                Passenger Details
+              </h3>
+              
+              {/* Passport Photo Upload */}
+              <div className="mb-6 p-4 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Passport / ID Photo
+                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                />
+                <div className="flex items-center gap-4">
+                  {passenger.passport_photo ? (
+                    <div className="relative">
+                      <img 
+                        src={passenger.passport_photo} 
+                        alt="Passport" 
+                        className="w-24 h-24 object-cover rounded-lg border border-slate-300"
+                      />
+                      <button
+                        onClick={() => updatePassenger('passport_photo', null)}
+                        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-2 px-4 py-3 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition"
+                    >
+                      <Upload className="w-5 h-5 text-slate-500" />
+                      <span className="text-sm text-slate-600">Upload Photo</span>
+                    </button>
+                  )}
+                  <p className="text-xs text-slate-500">
+                    Upload a clear photo of your passport or ID.<br/>
+                    Max 5MB. JPG, PNG accepted.
+                  </p>
+                </div>
+              </div>
+
+              {/* Personal Information */}
               <div className="grid gap-4 sm:grid-cols-2">
-                {[
-                  ['first_name', 'First name'],
-                  ['last_name', 'Last name'],
-                  ['nationality', 'Nationality'],
-                  ['passport_number', 'Passport number'],
-                ].map(([field, label]) => (
-                  <label key={field} className="text-sm font-medium text-slate-700">
-                    {label}
-                    <input
-                      value={passenger[field]}
-                      onChange={(event) => updatePassenger(field, event.target.value)}
-                      className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
-                    />
-                  </label>
-                ))}
+                <label className="text-sm font-medium text-slate-700">
+                  <span className="flex items-center gap-1"><User className="w-3 h-3" /> First Name *</span>
+                  <input
+                    value={passenger.first_name}
+                    onChange={(e) => updatePassenger('first_name', e.target.value)}
+                    placeholder="John"
+                    className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  />
+                </label>
+                <label className="text-sm font-medium text-slate-700">
+                  <span className="flex items-center gap-1"><User className="w-3 h-3" /> Last Name *</span>
+                  <input
+                    value={passenger.last_name}
+                    onChange={(e) => updatePassenger('last_name', e.target.value)}
+                    placeholder="Doe"
+                    className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  />
+                </label>
+                <label className="text-sm font-medium text-slate-700">
+                  <span className="flex items-center gap-1">Nationality *</span>
+                  <input
+                    value={passenger.nationality}
+                    onChange={(e) => updatePassenger('nationality', e.target.value)}
+                    placeholder="United States"
+                    className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  />
+                </label>
+                <label className="text-sm font-medium text-slate-700">
+                  <span className="flex items-center gap-1">Passport Number *</span>
+                  <input
+                    value={passenger.passport_number}
+                    onChange={(e) => updatePassenger('passport_number', e.target.value.toUpperCase())}
+                    placeholder="A12345678"
+                    className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  />
+                </label>
+                <label className="text-sm font-medium text-slate-700">
+                  <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> Date of Birth *</span>
+                  <input
+                    type="date"
+                    value={passenger.date_of_birth}
+                    onChange={(e) => updatePassenger('date_of_birth', e.target.value)}
+                    className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  />
+                </label>
+                <label className="text-sm font-medium text-slate-700">
+                  <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> Passport Expiry *</span>
+                  <input
+                    type="date"
+                    value={passenger.passport_expiry}
+                    onChange={(e) => updatePassenger('passport_expiry', e.target.value)}
+                    className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  />
+                </label>
+                <label className="text-sm font-medium text-slate-700">
+                  <span className="flex items-center gap-1">Phone Number *</span>
+                  <input
+                    type="tel"
+                    value={passenger.phone}
+                    onChange={(e) => updatePassenger('phone', e.target.value)}
+                    placeholder="+1 234 567 8900"
+                    className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  />
+                </label>
+                <label className="text-sm font-medium text-slate-700">
+                  <span className="flex items-center gap-1">Email *</span>
+                  <input
+                    type="email"
+                    value={passenger.email}
+                    onChange={(e) => updatePassenger('email', e.target.value)}
+                    placeholder="john.doe@email.com"
+                    className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  />
+                </label>
               </div>
             </div>
           )}
