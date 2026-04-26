@@ -26,18 +26,38 @@ export const SearchComponent = ({ onResults, onSearchStart, initialSearchType, i
     }
   }, [initialSearchType]);
   
+  // Helper to extract airport code from full string like "Dubai International Airport (DXB)"
+  const extractAirportCode = (input) => {
+    if (!input) return '';
+    // Check if input contains parentheses with code
+    const match = input.match(/\(([A-Z]{3})\)$/);
+    if (match) return match[1];
+    // Otherwise check if it's already a valid airport code
+    if (airports.some(a => a.code === input.toUpperCase())) return input.toUpperCase();
+    // Check if input matches an airport name
+    const airport = airports.find(a => 
+      input.toLowerCase().includes(a.name.toLowerCase()) ||
+      a.name.toLowerCase().includes(input.toLowerCase())
+    );
+    return airport?.code || input;
+  };
+
   // Pre-fill form with initial parameters from URL
   useEffect(() => {
     if (initialParams) {
       if (initialParams.location) {
         if (initialSearchType === 'flights') {
-          setOrigin(initialParams.location);
+          // Extract just the airport code from full name like "Dubai International Airport (DXB)"
+          const airportCode = extractAirportCode(initialParams.location);
+          setOrigin(airportCode);
         } else {
           setLocation(initialParams.location);
         }
       }
       if (initialParams.destination) {
-        setDestination(initialParams.destination);
+        // Extract just the airport code from full name
+        const airportCode = extractAirportCode(initialParams.destination);
+        setDestination(airportCode);
       }
       if (initialParams.date) {
         setCheckIn(initialParams.date);
