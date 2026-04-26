@@ -5,10 +5,11 @@ import {
   LogOut, User, Plane, Hotel, Utensils, Ticket, Sparkles,
   ClipboardList, Loader, AlertCircle, X, Bell, BellOff,
   CheckCircle, Clock, XCircle, ChevronRight, RefreshCw,
-  DollarSign, Calendar, Package
+  DollarSign, Calendar, Package, Home
 } from 'lucide-react';
 import { bookingService } from '../lib/bookingService';
 import { notificationService } from '../lib/notificationService';
+import { itineraryService } from '../lib/itineraryService';
 
 // ─────────────────────────────────────────────
 // Main Page
@@ -33,6 +34,12 @@ export const DashboardPage = () => {
     try {
       setIsLoading(true);
       setError('');
+      
+      // Seed sample data for new users
+      await bookingService.seedBookings(user.id);
+      await notificationService.seedNotifications(user.id);
+      await itineraryService.seedItineraries(user.id);
+      
       const [userBookings, userNotifications, unread] = await Promise.all([
         bookingService.getUserBookings(user.id),
         notificationService.getUserNotifications(user.id, { limit: 20 }),
@@ -174,13 +181,22 @@ export const DashboardPage = () => {
               Welcome back, {user?.fullName || user?.email?.split('@')[0]}
             </p>
           </div>
-          <button
-            onClick={loadDashboardData}
-            className="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg hover:bg-slate-50 transition"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50 transition"
+            >
+              <Home className="w-4 h-4" />
+              Return Home
+            </button>
+            <button
+              onClick={loadDashboardData}
+              className="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg hover:bg-slate-50 transition"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
+          </div>
         </div>
 
         {/* ── Error ── */}

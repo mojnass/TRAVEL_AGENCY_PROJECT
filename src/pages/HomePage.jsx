@@ -6,7 +6,6 @@ import {
   Star, Shield, Clock, Globe, AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { cities, airports } from '../data/airports.js';
 
 export const HomePage = () => {
   const { user } = useAuth();
@@ -17,37 +16,39 @@ export const HomePage = () => {
   const [searchDate, setSearchDate] = useState('');
   const [searchError, setSearchError] = useState('');
   
+  // Available destinations from database (Dubai, Paris, Beirut)
+  const availableDestinations = [
+    { name: 'Dubai', country: 'UAE', airport: 'DXB', airportName: 'Dubai International Airport' },
+    { name: 'Paris', country: 'France', airport: 'CDG', airportName: 'Charles de Gaulle Airport' },
+    { name: 'Beirut', country: 'Lebanon', airport: 'BEY', airportName: 'Beirut Rafic Hariri International Airport' },
+  ];
+  
   // City dropdown states
   const [showOriginDropdown, setShowOriginDropdown] = useState(false);
   const [showDestinationDropdown, setShowDestinationDropdown] = useState(false);
-  const [filteredCities, setFilteredCities] = useState(cities);
-  const [filteredAirports, setFilteredAirports] = useState(airports);
+  const [filteredDestinations, setFilteredDestinations] = useState(availableDestinations);
   
-  // Filter cities based on input
-  const filterCities = (input) => {
+  // Filter destinations based on input
+  const filterDestinations = (input) => {
     if (!input.trim()) {
-      setFilteredCities(cities);
+      setFilteredDestinations(availableDestinations);
       return;
     }
-    const filtered = cities.filter(city => 
-      city.name.toLowerCase().includes(input.toLowerCase()) ||
-      city.country.toLowerCase().includes(input.toLowerCase())
+    const filtered = availableDestinations.filter(dest => 
+      dest.name.toLowerCase().includes(input.toLowerCase()) ||
+      dest.country.toLowerCase().includes(input.toLowerCase()) ||
+      dest.airport.toLowerCase().includes(input.toLowerCase())
     );
-    setFilteredCities(filtered);
+    setFilteredDestinations(filtered);
   };
   
-  // Filter airports based on input
-  const filterAirports = (input) => {
-    if (!input.trim()) {
-      setFilteredAirports(airports);
-      return;
-    }
-    const filtered = airports.filter(airport => 
-      airport.name.toLowerCase().includes(input.toLowerCase()) ||
-      airport.code.toLowerCase().includes(input.toLowerCase()) ||
-      airport.country.toLowerCase().includes(input.toLowerCase())
+  // Validate that selected destination exists in our database
+  const isValidDestination = (input) => {
+    if (!input.trim()) return false;
+    return availableDestinations.some(dest => 
+      input.toLowerCase().includes(dest.name.toLowerCase()) ||
+      input.toLowerCase().includes(dest.airport.toLowerCase())
     );
-    setFilteredAirports(filtered);
   };
 
   const handleQuickSearch = (e) => {
@@ -60,9 +61,21 @@ export const HomePage = () => {
       return;
     }
     
+    // Validation: check if origin is a valid destination
+    if (!isValidDestination(searchInput)) {
+      setSearchError(`We don't have services in "${searchInput}". Available destinations: Dubai, Paris, Beirut`);
+      return;
+    }
+    
     // For flights, also require destination
     if (searchTab === 'flights' && !destinationInput.trim()) {
       setSearchError('Please enter a destination city or airport');
+      return;
+    }
+    
+    // Validation: check if destination is valid (for flights)
+    if (searchTab === 'flights' && !isValidDestination(destinationInput)) {
+      setSearchError(`We don't have flights to "${destinationInput}". Available destinations: Dubai, Paris, Beirut`);
       return;
     }
     
@@ -196,62 +209,59 @@ export const HomePage = () => {
                     value={searchInput}
                     onChange={e => {
                       setSearchInput(e.target.value);
-                      if (searchTab === 'flights') {
-                        filterAirports(e.target.value);
-                      } else {
-                        filterCities(e.target.value);
-                      }
+                      filterDestinations(e.target.value);
                       setShowOriginDropdown(true);
                     }}
                     onFocus={() => setShowOriginDropdown(true)}
                     onBlur={() => setTimeout(() => setShowOriginDropdown(false), 200)}
                     className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm relative z-20"
                   />
-                  {/* City/Airport Dropdown */}
+                  {/* Destination Dropdown - Only shows available destinations */}
                   {showOriginDropdown && (
                     <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-2xl max-h-60 overflow-y-auto z-[100]">
                       {searchTab === 'flights' ? (
-                        // Airports for flights
-                        filteredAirports.slice(0, 8).map((airport) => (
+                        // Airports for flights (only available destinations)
+                        filteredDestinations.map((dest) => (
                           <button
-                            key={airport.code}
+                            key={dest.airport}
                             type="button"
                             onClick={() => {
-                              setSearchInput(`${airport.name} (${airport.code})`);
+                              setSearchInput(`${dest.airportName} (${dest.airport})`);
                               setShowOriginDropdown(false);
                             }}
                             className="w-full px-4 py-2 text-left hover:bg-slate-50 flex items-center gap-2 text-sm"
                           >
                             <Plane className="w-4 h-4 text-blue-500" />
                             <div>
-                              <div className="font-medium">{airport.name}</div>
-                              <div className="text-xs text-slate-500">{airport.code} • {airport.country}</div>
+                              <div className="font-medium">{dest.airportName}</div>
+                              <div className="text-xs text-slate-500">{dest.airport} • {dest.name}, {dest.country}</div>
                             </div>
                           </button>
                         ))
                       ) : (
-                        // Cities for other services
-                        filteredCities.slice(0, 8).map((city) => (
+                        // Cities for other services (only available destinations)
+                        filteredDestinations.map((dest) => (
                           <button
-                            key={city.name}
+                            key={dest.name}
                             type="button"
                             onClick={() => {
-                              setSearchInput(city.name);
+                              setSearchInput(dest.name);
                               setShowOriginDropdown(false);
                             }}
                             className="w-full px-4 py-2 text-left hover:bg-slate-50 flex items-center gap-2 text-sm"
                           >
                             <MapPin className="w-4 h-4 text-blue-500" />
                             <div>
-                              <div className="font-medium">{city.name}</div>
-                              <div className="text-xs text-slate-500">{city.country}</div>
+                              <div className="font-medium">{dest.name}</div>
+                              <div className="text-xs text-slate-500">{dest.country}</div>
                             </div>
                           </button>
                         ))
                       )}
-                      {((searchTab === 'flights' && filteredAirports.length === 0) || 
-                        (searchTab !== 'flights' && filteredCities.length === 0)) && (
-                        <div className="px-4 py-2 text-sm text-slate-500">No matches found</div>
+                      {filteredDestinations.length === 0 && (
+                        <div className="px-4 py-2 text-sm text-slate-500">
+                          No destinations found. Available: Dubai, Paris, Beirut
+                        </div>
                       )}
                     </div>
                   )}
@@ -265,35 +275,37 @@ export const HomePage = () => {
                       value={destinationInput}
                       onChange={e => {
                         setDestinationInput(e.target.value);
-                        filterAirports(e.target.value);
+                        filterDestinations(e.target.value);
                         setShowDestinationDropdown(true);
                       }}
                       onFocus={() => setShowDestinationDropdown(true)}
                       onBlur={() => setTimeout(() => setShowDestinationDropdown(false), 200)}
                       className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm relative z-20"
                     />
-                    {/* Destination Dropdown */}
+                    {/* Destination Dropdown - Only available destinations */}
                     {showDestinationDropdown && (
                       <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-2xl max-h-60 overflow-y-auto z-[100]">
-                        {filteredAirports.slice(0, 8).map((airport) => (
+                        {filteredDestinations.map((dest) => (
                           <button
-                            key={airport.code}
+                            key={dest.airport}
                             type="button"
                             onClick={() => {
-                              setDestinationInput(`${airport.name} (${airport.code})`);
+                              setDestinationInput(`${dest.airportName} (${dest.airport})`);
                               setShowDestinationDropdown(false);
                             }}
                             className="w-full px-4 py-2 text-left hover:bg-slate-50 flex items-center gap-2 text-sm"
                           >
                             <Plane className="w-4 h-4 text-green-500" />
                             <div>
-                              <div className="font-medium">{airport.name}</div>
-                              <div className="text-xs text-slate-500">{airport.code} • {airport.country}</div>
+                              <div className="font-medium">{dest.airportName}</div>
+                              <div className="text-xs text-slate-500">{dest.airport} • {dest.name}, {dest.country}</div>
                             </div>
                           </button>
                         ))}
-                        {filteredAirports.length === 0 && (
-                          <div className="px-4 py-2 text-sm text-slate-500">No airports found</div>
+                        {filteredDestinations.length === 0 && (
+                          <div className="px-4 py-2 text-sm text-slate-500">
+                            No destinations found. Available: Dubai, Paris, Beirut
+                          </div>
                         )}
                       </div>
                     )}
