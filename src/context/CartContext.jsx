@@ -1,10 +1,33 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 
 const CartContext = createContext(null);
+const CART_STORAGE_KEY = 'patronus_cart';
+
+const loadCart = () => {
+  try {
+    const stored = localStorage.getItem(CART_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveCart = (items) => {
+  try {
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+  } catch {
+    // Silently ignore storage errors (e.g. private browsing quota)
+  }
+};
 
 export const CartProvider = ({ children }) => {
-  const [cartItems, setCartItems] = useState([]);
+  const [cartItems, setCartItems] = useState(loadCart);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Persist cart to localStorage whenever it changes
+  useEffect(() => {
+    saveCart(cartItems);
+  }, [cartItems]);
 
   const addToCart = (item, type) => {
     const serviceId = item.hotel_id || item.offer_id || item.restaurant_id || item.attraction_id || item.spa_id || item.bundle_id || item.user_bundle_id || item.id;

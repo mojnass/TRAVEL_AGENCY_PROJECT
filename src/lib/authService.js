@@ -69,13 +69,35 @@ export const authService = {
 
   async resetPassword(email) {
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
       if (error) throw error;
       return { success: true };
     } catch (error) {
       console.error('Reset password error:', error);
       throw error;
     }
+  },
+
+  async completePasswordReset(_token, newPassword) {
+    // With Supabase, the user lands back on /reset-password with a session already
+    // established via the magic link. We just update the password directly.
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error('Complete password reset error:', error);
+      throw error;
+    }
+  },
+
+  // Supabase doesn't expose a first-party TOTP 2FA check at the signIn level in the JS SDK v2
+  // without enrolling via MFA. This stub preserves the login UI flow while making clear
+  // the feature requires MFA enrollment in Supabase or a custom backend.
+  async verifyTwoFactor(_email, _otp) {
+    throw new Error('Two-factor verification requires MFA enrollment via Supabase Auth or a custom backend.');
   },
 
   async updatePassword(newPassword) {

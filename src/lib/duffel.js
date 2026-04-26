@@ -1,19 +1,15 @@
-// This function uses your Vite proxy (/duffel) to talk to Duffel
+// Flight search is proxied through the backend at /duffel to avoid exposing the
+// Duffel access token on the client. Set DUFFEL_ACCESS_TOKEN on the server only.
+// The Vite dev proxy (vite.config.js) forwards /duffel → https://api.duffel.com
+// and the production server must do the same, injecting the Authorization header.
 export const searchFlights = async (origin, destination, departureDate) => {
-  const token = import.meta.env.VITE_DUFFEL_ACCESS_TOKEN;
-
-  if (!token) {
-    console.error('Duffel token not found in environment variables');
-    return [];
-  }
-
   const body = {
     data: {
       slices: [
         {
-          origin: origin, // e.g., 'LHR'
-          destination: destination, // e.g., 'DXB'
-          departure_date: departureDate, // e.g., '2026-06-15'
+          origin,
+          destination,
+          departure_date: departureDate,
         },
       ],
       passengers: [{ type: 'adult' }],
@@ -26,8 +22,8 @@ export const searchFlights = async (origin, destination, departureDate) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-        'Duffel-Version': 'v2', // Updated to latest version
+        'Duffel-Version': 'v2',
+        // Authorization header is injected by the server-side proxy, NOT here.
       },
       body: JSON.stringify(body),
     });
